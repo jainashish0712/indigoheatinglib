@@ -69,7 +69,7 @@ static void apply_viewfinder_fps_cap(MTKView *view) {
     // 1. Cap MTKView preferredFramesPerSecond (Standard MTKView property available since iOS 9.0)
     if (view.preferredFramesPerSecond != targetFPS) {
         view.preferredFramesPerSecond = targetFPS;
-        LOG("Set preferredFramesPerSecond = %ld on MTKView %p", (long)targetFPS, (void *)view);
+        LOG("Set preferredFramesPerSecond = %ld on MTKView %p", (long)targetFPS, (__bridge void *)view);
     }
 
     // 2. On iOS 15+ ProMotion displays, configure CAFrameRateRange dynamically via objc_msgSend
@@ -86,7 +86,7 @@ static void apply_viewfinder_fps_cap(MTKView *view) {
             void (*setMtkRange)(id, SEL, CAFrameRateRange) = (void (*)(id, SEL, CAFrameRateRange))objc_msgSend;
             setMtkRange(view, setRangeSel, range);
             LOG("Set MTKView.preferredFrameRateRange = (min: %.1f, max: %.1f, pref: %.1f) on %p",
-                minFps, maxFps, prefFps, (void *)view);
+                minFps, maxFps, prefFps, (__bridge void *)view);
         }
 
         // Also enforce range on backing CAMetalLayer if supported
@@ -95,7 +95,7 @@ static void apply_viewfinder_fps_cap(MTKView *view) {
             void (*setLayerRange)(id, SEL, CAFrameRateRange) = (void (*)(id, SEL, CAFrameRateRange))objc_msgSend;
             setLayerRange(layer, setRangeSel, range);
             LOG("Set CALayer.preferredFrameRateRange = (min: %.1f, max: %.1f, pref: %.1f) on layer %p",
-                minFps, maxFps, prefFps, (void *)layer);
+                minFps, maxFps, prefFps, (__bridge void *)layer);
         }
     }
 }
@@ -110,6 +110,8 @@ static void safe_swizzle(Class cls, SEL sel, IMP newImp, IMP *origImp) {
     if (!origMethod) return;
 
     const char *types = method_getTypeEncoding(origMethod);
+    if (!types) types = "v@:";
+
     if (class_addMethod(cls, sel, newImp, types)) {
         *origImp = method_getImplementation(origMethod);
     } else {
@@ -197,6 +199,8 @@ __attribute__((constructor)) static void init_indigo_thermal_fix(void) {
             return;
         }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcast-function-type"
         safe_swizzle(mtkViewClass, @selector(setDelegate:),
                      (IMP)hook_MTKView_setDelegate,
                      (IMP *)&orig_MTKView_setDelegate);
@@ -220,6 +224,7 @@ __attribute__((constructor)) static void init_indigo_thermal_fix(void) {
         safe_swizzle(mtkViewClass, @selector(setPreferredFramesPerSecond:),
                      (IMP)hook_MTKView_setPreferredFramesPerSecond,
                      (IMP *)&orig_MTKView_setPreferredFramesPerSecond);
+#pragma clang diagnostic pop
 
         LOG("Successfully hooked MTKView methods. Viewfinder frame rate capped at %ld FPS.",
             (long)get_target_fps());
