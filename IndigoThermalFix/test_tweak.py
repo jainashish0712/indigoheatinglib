@@ -176,8 +176,28 @@ class TestMachOBinary(unittest.TestCase):
             data = f.read()
 
         self.assertGreater(len(data), 4096, "Dylib file is too small")
+
+        # Valid Mach-O 64-bit and FAT Universal binary magics in both Little-Endian and Big-Endian
+        VALID_MAGICS = {
+            0xfeedfacf,  # MH_MAGIC_64 (little-endian arm64 Mach-O)
+            0xcffaedfe,  # MH_CIGAM_64 (big-endian 64-bit Mach-O)
+            0xcafebabe,  # FAT_MAGIC (universal binary, big-endian)
+            0xbebafeca,  # FAT_CIGAM (universal binary, little-endian unpacked: 0xbebafeca)
+            0xcafebabf,  # FAT_MAGIC_64 (universal 64-bit, big-endian)
+            0xbfbafeca,  # FAT_CIGAM_64 (universal 64-bit, little-endian unpacked)
+        }
+
         magic, = struct.unpack_from("<I", data, 0)
-        self.assertIn(magic, [0xfeedfacf, 0xcafebabe], f"Invalid Mach-O magic: 0x{magic:08x}")
+        self.assertIn(
+            magic,
+            VALID_MAGICS,
+            f"Invalid Mach-O magic: 0x{magic:08x}. Must be 64-bit Mach-O or Universal Fat binary."
+        )
+
+        # If FAT universal binary, verify architecture count >= 1
+        if magic in (0xcafebabe, 0xbebafeca):
+            nfat_arch, = struct.unpack_from(">I", data, 4)
+            self.assertGreaterEqual(nfat_arch, 1, "FAT universal binary has no architecture slices")
 
 
 def main():

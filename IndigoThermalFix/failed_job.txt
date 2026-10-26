@@ -1,0 +1,473 @@
+Compiling IndigoThermalFix.dylib with default target FPS: 30
+Tweak.m:72:82: error: cast of Objective-C pointer type 'MTKView *' to C pointer type 'void *' requires a bridged cast
+   72 |         LOG("Set preferredFramesPerSecond = %ld on MTKView %p", (long)targetFPS, (void *)view);
+      |                                                                                  ^~~~~~~~~~~~
+Tweak.m:43:52: note: expanded from macro 'LOG'
+   43 |     os_log(get_log(), "[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                                    ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:220:62: note: expanded from macro 'os_log'
+  220 |         os_log_with_type(log, OS_LOG_TYPE_DEFAULT, format, ##__VA_ARGS__)
+      |                                                              ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:186:65: note: expanded from macro 'os_log_with_type'
+  186 |                 (&__dso_handle, _log_tmp, _type_tmp), format, ##__VA_ARGS__); \
+      |                                                                 ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/trace_base.h:88:106: note: expanded from macro 'OS_LOG_CALL_WITH_FORMAT'
+   88 |         uint8_t _Alignas(16) OS_LOG_UNINITIALIZED _os_fmt_buf[__builtin_os_log_format_buffer_size(fmt, ##__VA_ARGS__)]; \
+      |                                                                                                          ^~~~~~~~~~~
+Tweak.m:72:82: note: use __bridge to convert directly (no change in ownership)
+Tweak.m:72:90: note: use CFBridgingRetain call to make an ARC object available as a +1 'void *'
+   72 |         LOG("Set preferredFramesPerSecond = %ld on MTKView %p", (long)targetFPS, (void *)view);
+      |                                                                                          ^
+      |                                                                                          CFBridgingRetain(
+Tweak.m:43:52: note: expanded from macro 'LOG'
+   43 |     os_log(get_log(), "[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                                    ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:220:62: note: expanded from macro 'os_log'
+  220 |         os_log_with_type(log, OS_LOG_TYPE_DEFAULT, format, ##__VA_ARGS__)
+      |                                                              ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:186:65: note: expanded from macro 'os_log_with_type'
+  186 |                 (&__dso_handle, _log_tmp, _type_tmp), format, ##__VA_ARGS__); \
+      |                                                                 ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/trace_base.h:88:106: note: expanded from macro 'OS_LOG_CALL_WITH_FORMAT'
+   88 |         uint8_t _Alignas(16) OS_LOG_UNINITIALIZED _os_fmt_buf[__builtin_os_log_format_buffer_size(fmt, ##__VA_ARGS__)]; \
+      |                                                                                                          ^
+Tweak.m:72:82: error: cast of Objective-C pointer type 'MTKView *' to C pointer type 'void *' requires a bridged cast
+   72 |         LOG("Set preferredFramesPerSecond = %ld on MTKView %p", (long)targetFPS, (void *)view);
+      |                                                                                  ^~~~~~~~~~~~
+Tweak.m:43:52: note: expanded from macro 'LOG'
+   43 |     os_log(get_log(), "[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                                    ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:220:62: note: expanded from macro 'os_log'
+  220 |         os_log_with_type(log, OS_LOG_TYPE_DEFAULT, format, ##__VA_ARGS__)
+      |                                                              ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:186:65: note: expanded from macro 'os_log_with_type'
+  186 |                 (&__dso_handle, _log_tmp, _type_tmp), format, ##__VA_ARGS__); \
+      |                                                                 ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/trace_base.h:90:72: note: expanded from macro 'OS_LOG_CALL_WITH_FORMAT'
+   90 |                 (uint8_t *)__builtin_os_log_format(_os_fmt_buf, fmt, ##__VA_ARGS__), \
+      |                                                                        ^~~~~~~~~~~
+Tweak.m:72:82: note: use __bridge to convert directly (no change in ownership)
+Tweak.m:72:90: note: use CFBridgingRetain call to make an ARC object available as a +1 'void *'
+   72 |         LOG("Set preferredFramesPerSecond = %ld on MTKView %p", (long)targetFPS, (void *)view);
+      |                                                                                          ^
+      |                                                                                          CFBridgingRetain(
+Tweak.m:43:52: note: expanded from macro 'LOG'
+   43 |     os_log(get_log(), "[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                                    ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:220:62: note: expanded from macro 'os_log'
+  220 |         os_log_with_type(log, OS_LOG_TYPE_DEFAULT, format, ##__VA_ARGS__)
+      |                                                              ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:186:65: note: expanded from macro 'os_log_with_type'
+  186 |                 (&__dso_handle, _log_tmp, _type_tmp), format, ##__VA_ARGS__); \
+      |                                                                 ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/trace_base.h:90:72: note: expanded from macro 'OS_LOG_CALL_WITH_FORMAT'
+   90 |                 (uint8_t *)__builtin_os_log_format(_os_fmt_buf, fmt, ##__VA_ARGS__), \
+      |                                                                        ^
+Tweak.m:72:82: error: cast of Objective-C pointer type 'MTKView *' to C pointer type 'void *' requires a bridged cast
+   72 |         LOG("Set preferredFramesPerSecond = %ld on MTKView %p", (long)targetFPS, (void *)view);
+      |                                                                                  ^~~~~~~~~~~~
+Tweak.m:44:41: note: expanded from macro 'LOG'
+   44 |     NSLog(@"[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                         ^~~~~~~~~~~
+Tweak.m:72:82: note: use __bridge to convert directly (no change in ownership)
+Tweak.m:72:90: note: use CFBridgingRetain call to make an ARC object available as a +1 'void *'
+   72 |         LOG("Set preferredFramesPerSecond = %ld on MTKView %p", (long)targetFPS, (void *)view);
+      |                                                                                          ^
+      |                                                                                          CFBridgingRetain(
+Tweak.m:44:41: note: expanded from macro 'LOG'
+   44 |     NSLog(@"[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                         ^
+Tweak.m:89:42: error: cast of Objective-C pointer type 'MTKView *' to C pointer type 'void *' requires a bridged cast
+   89 |                 minFps, maxFps, prefFps, (void *)view);
+      |                                          ^~~~~~~~~~~~
+Tweak.m:43:52: note: expanded from macro 'LOG'
+   43 |     os_log(get_log(), "[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                                    ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:220:62: note: expanded from macro 'os_log'
+  220 |         os_log_with_type(log, OS_LOG_TYPE_DEFAULT, format, ##__VA_ARGS__)
+      |                                                              ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:186:65: note: expanded from macro 'os_log_with_type'
+  186 |                 (&__dso_handle, _log_tmp, _type_tmp), format, ##__VA_ARGS__); \
+      |                                                                 ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/trace_base.h:88:106: note: expanded from macro 'OS_LOG_CALL_WITH_FORMAT'
+   88 |         uint8_t _Alignas(16) OS_LOG_UNINITIALIZED _os_fmt_buf[__builtin_os_log_format_buffer_size(fmt, ##__VA_ARGS__)]; \
+      |                                                                                                          ^~~~~~~~~~~
+Tweak.m:89:42: note: use __bridge to convert directly (no change in ownership)
+Tweak.m:89:50: note: use CFBridgingRetain call to make an ARC object available as a +1 'void *'
+   89 |                 minFps, maxFps, prefFps, (void *)view);
+      |                                                  ^
+      |                                                  CFBridgingRetain(
+Tweak.m:43:52: note: expanded from macro 'LOG'
+   43 |     os_log(get_log(), "[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                                    ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:220:62: note: expanded from macro 'os_log'
+  220 |         os_log_with_type(log, OS_LOG_TYPE_DEFAULT, format, ##__VA_ARGS__)
+      |                                                              ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:186:65: note: expanded from macro 'os_log_with_type'
+  186 |                 (&__dso_handle, _log_tmp, _type_tmp), format, ##__VA_ARGS__); \
+      |                                                                 ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/trace_base.h:88:106: note: expanded from macro 'OS_LOG_CALL_WITH_FORMAT'
+   88 |         uint8_t _Alignas(16) OS_LOG_UNINITIALIZED _os_fmt_buf[__builtin_os_log_format_buffer_size(fmt, ##__VA_ARGS__)]; \
+      |                                                                                                          ^
+Tweak.m:89:42: error: cast of Objective-C pointer type 'MTKView *' to C pointer type 'void *' requires a bridged cast
+   89 |                 minFps, maxFps, prefFps, (void *)view);
+      |                                          ^~~~~~~~~~~~
+Tweak.m:43:52: note: expanded from macro 'LOG'
+   43 |     os_log(get_log(), "[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                                    ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:220:62: note: expanded from macro 'os_log'
+  220 |         os_log_with_type(log, OS_LOG_TYPE_DEFAULT, format, ##__VA_ARGS__)
+      |                                                              ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:186:65: note: expanded from macro 'os_log_with_type'
+  186 |                 (&__dso_handle, _log_tmp, _type_tmp), format, ##__VA_ARGS__); \
+      |                                                                 ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/trace_base.h:90:72: note: expanded from macro 'OS_LOG_CALL_WITH_FORMAT'
+   90 |                 (uint8_t *)__builtin_os_log_format(_os_fmt_buf, fmt, ##__VA_ARGS__), \
+      |                                                                        ^~~~~~~~~~~
+Tweak.m:89:42: note: use __bridge to convert directly (no change in ownership)
+Tweak.m:89:50: note: use CFBridgingRetain call to make an ARC object available as a +1 'void *'
+   89 |                 minFps, maxFps, prefFps, (void *)view);
+      |                                                  ^
+      |                                                  CFBridgingRetain(
+Tweak.m:43:52: note: expanded from macro 'LOG'
+   43 |     os_log(get_log(), "[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                                    ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:220:62: note: expanded from macro 'os_log'
+  220 |         os_log_with_type(log, OS_LOG_TYPE_DEFAULT, format, ##__VA_ARGS__)
+      |                                                              ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:186:65: note: expanded from macro 'os_log_with_type'
+  186 |                 (&__dso_handle, _log_tmp, _type_tmp), format, ##__VA_ARGS__); \
+      |                                                                 ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/trace_base.h:90:72: note: expanded from macro 'OS_LOG_CALL_WITH_FORMAT'
+   90 |                 (uint8_t *)__builtin_os_log_format(_os_fmt_buf, fmt, ##__VA_ARGS__), \
+      |                                                                        ^
+Tweak.m:89:42: error: cast of Objective-C pointer type 'MTKView *' to C pointer type 'void *' requires a bridged cast
+   89 |                 minFps, maxFps, prefFps, (void *)view);
+      |                                          ^~~~~~~~~~~~
+Tweak.m:44:41: note: expanded from macro 'LOG'
+   44 |     NSLog(@"[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                         ^~~~~~~~~~~
+Tweak.m:89:42: note: use __bridge to convert directly (no change in ownership)
+Tweak.m:89:50: note: use CFBridgingRetain call to make an ARC object available as a +1 'void *'
+   89 |                 minFps, maxFps, prefFps, (void *)view);
+      |                                                  ^
+      |                                                  CFBridgingRetain(
+Tweak.m:44:41: note: expanded from macro 'LOG'
+   44 |     NSLog(@"[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                         ^
+Tweak.m:98:42: error: cast of Objective-C pointer type 'CALayer *' to C pointer type 'void *' requires a bridged cast
+   98 |                 minFps, maxFps, prefFps, (void *)layer);
+      |                                          ^~~~~~~~~~~~~
+Tweak.m:43:52: note: expanded from macro 'LOG'
+   43 |     os_log(get_log(), "[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                                    ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:220:62: note: expanded from macro 'os_log'
+  220 |         os_log_with_type(log, OS_LOG_TYPE_DEFAULT, format, ##__VA_ARGS__)
+      |                                                              ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:186:65: note: expanded from macro 'os_log_with_type'
+  186 |                 (&__dso_handle, _log_tmp, _type_tmp), format, ##__VA_ARGS__); \
+      |                                                                 ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/trace_base.h:88:106: note: expanded from macro 'OS_LOG_CALL_WITH_FORMAT'
+   88 |         uint8_t _Alignas(16) OS_LOG_UNINITIALIZED _os_fmt_buf[__builtin_os_log_format_buffer_size(fmt, ##__VA_ARGS__)]; \
+      |                                                                                                          ^~~~~~~~~~~
+Tweak.m:98:42: note: use __bridge to convert directly (no change in ownership)
+Tweak.m:98:50: note: use CFBridgingRetain call to make an ARC object available as a +1 'void *'
+   98 |                 minFps, maxFps, prefFps, (void *)layer);
+      |                                                  ^
+      |                                                  CFBridgingRetain(
+Tweak.m:43:52: note: expanded from macro 'LOG'
+   43 |     os_log(get_log(), "[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                                    ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:220:62: note: expanded from macro 'os_log'
+  220 |         os_log_with_type(log, OS_LOG_TYPE_DEFAULT, format, ##__VA_ARGS__)
+      |                                                              ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:186:65: note: expanded from macro 'os_log_with_type'
+  186 |                 (&__dso_handle, _log_tmp, _type_tmp), format, ##__VA_ARGS__); \
+      |                                                                 ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/trace_base.h:88:106: note: expanded from macro 'OS_LOG_CALL_WITH_FORMAT'
+   88 |         uint8_t _Alignas(16) OS_LOG_UNINITIALIZED _os_fmt_buf[__builtin_os_log_format_buffer_size(fmt, ##__VA_ARGS__)]; \
+      |                                                                                                          ^
+Tweak.m:98:42: error: cast of Objective-C pointer type 'CALayer *' to C pointer type 'void *' requires a bridged cast
+   98 |                 minFps, maxFps, prefFps, (void *)layer);
+      |                                          ^~~~~~~~~~~~~
+Tweak.m:43:52: note: expanded from macro 'LOG'
+   43 |     os_log(get_log(), "[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                                    ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:220:62: note: expanded from macro 'os_log'
+  220 |         os_log_with_type(log, OS_LOG_TYPE_DEFAULT, format, ##__VA_ARGS__)
+      |                                                              ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:186:65: note: expanded from macro 'os_log_with_type'
+  186 |                 (&__dso_handle, _log_tmp, _type_tmp), format, ##__VA_ARGS__); \
+      |                                                                 ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/trace_base.h:90:72: note: expanded from macro 'OS_LOG_CALL_WITH_FORMAT'
+   90 |                 (uint8_t *)__builtin_os_log_format(_os_fmt_buf, fmt, ##__VA_ARGS__), \
+      |                                                                        ^~~~~~~~~~~
+Tweak.m:98:42: note: use __bridge to convert directly (no change in ownership)
+Tweak.m:98:50: note: use CFBridgingRetain call to make an ARC object available as a +1 'void *'
+   98 |                 minFps, maxFps, prefFps, (void *)layer);
+      |                                                  ^
+      |                                                  CFBridgingRetain(
+Tweak.m:43:52: note: expanded from macro 'LOG'
+   43 |     os_log(get_log(), "[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                                    ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:220:62: note: expanded from macro 'os_log'
+  220 |         os_log_with_type(log, OS_LOG_TYPE_DEFAULT, format, ##__VA_ARGS__)
+      |                                                              ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:186:65: note: expanded from macro 'os_log_with_type'
+  186 |                 (&__dso_handle, _log_tmp, _type_tmp), format, ##__VA_ARGS__); \
+      |                                                                 ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/trace_base.h:90:72: note: expanded from macro 'OS_LOG_CALL_WITH_FORMAT'
+   90 |                 (uint8_t *)__builtin_os_log_format(_os_fmt_buf, fmt, ##__VA_ARGS__), \
+      |                                                                        ^
+Tweak.m:98:42: error: cast of Objective-C pointer type 'CALayer *' to C pointer type 'void *' requires a bridged cast
+   98 |                 minFps, maxFps, prefFps, (void *)layer);
+      |                                          ^~~~~~~~~~~~~
+Tweak.m:44:41: note: expanded from macro 'LOG'
+   44 |     NSLog(@"[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                         ^~~~~~~~~~~
+Tweak.m:98:42: note: use __bridge to convert directly (no change in ownership)
+Tweak.m:98:50: note: use CFBridgingRetain call to make an ARC object available as a +1 'void *'
+   98 |                 minFps, maxFps, prefFps, (void *)layer);
+      |                                                  ^
+      |                                                  CFBridgingRetain(
+Tweak.m:44:41: note: expanded from macro 'LOG'
+   44 |     NSLog(@"[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                         ^
+9 errors generated.
+Building single-slice arm64 dylib...
+Tweak.m:72:82: error: cast of Objective-C pointer type 'MTKView *' to C pointer type 'void *' requires a bridged cast
+   72 |         LOG("Set preferredFramesPerSecond = %ld on MTKView %p", (long)targetFPS, (void *)view);
+      |                                                                                  ^~~~~~~~~~~~
+Tweak.m:43:52: note: expanded from macro 'LOG'
+   43 |     os_log(get_log(), "[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                                    ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:220:62: note: expanded from macro 'os_log'
+  220 |         os_log_with_type(log, OS_LOG_TYPE_DEFAULT, format, ##__VA_ARGS__)
+      |                                                              ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:186:65: note: expanded from macro 'os_log_with_type'
+  186 |                 (&__dso_handle, _log_tmp, _type_tmp), format, ##__VA_ARGS__); \
+      |                                                                 ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/trace_base.h:88:106: note: expanded from macro 'OS_LOG_CALL_WITH_FORMAT'
+   88 |         uint8_t _Alignas(16) OS_LOG_UNINITIALIZED _os_fmt_buf[__builtin_os_log_format_buffer_size(fmt, ##__VA_ARGS__)]; \
+      |                                                                                                          ^~~~~~~~~~~
+Tweak.m:72:82: note: use __bridge to convert directly (no change in ownership)
+Tweak.m:72:90: note: use CFBridgingRetain call to make an ARC object available as a +1 'void *'
+   72 |         LOG("Set preferredFramesPerSecond = %ld on MTKView %p", (long)targetFPS, (void *)view);
+      |                                                                                          ^
+      |                                                                                          CFBridgingRetain(
+Tweak.m:43:52: note: expanded from macro 'LOG'
+   43 |     os_log(get_log(), "[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                                    ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:220:62: note: expanded from macro 'os_log'
+  220 |         os_log_with_type(log, OS_LOG_TYPE_DEFAULT, format, ##__VA_ARGS__)
+      |                                                              ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:186:65: note: expanded from macro 'os_log_with_type'
+  186 |                 (&__dso_handle, _log_tmp, _type_tmp), format, ##__VA_ARGS__); \
+      |                                                                 ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/trace_base.h:88:106: note: expanded from macro 'OS_LOG_CALL_WITH_FORMAT'
+   88 |         uint8_t _Alignas(16) OS_LOG_UNINITIALIZED _os_fmt_buf[__builtin_os_log_format_buffer_size(fmt, ##__VA_ARGS__)]; \
+      |                                                                                                          ^
+Tweak.m:72:82: error: cast of Objective-C pointer type 'MTKView *' to C pointer type 'void *' requires a bridged cast
+   72 |         LOG("Set preferredFramesPerSecond = %ld on MTKView %p", (long)targetFPS, (void *)view);
+      |                                                                                  ^~~~~~~~~~~~
+Tweak.m:43:52: note: expanded from macro 'LOG'
+   43 |     os_log(get_log(), "[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                                    ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:220:62: note: expanded from macro 'os_log'
+  220 |         os_log_with_type(log, OS_LOG_TYPE_DEFAULT, format, ##__VA_ARGS__)
+      |                                                              ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:186:65: note: expanded from macro 'os_log_with_type'
+  186 |                 (&__dso_handle, _log_tmp, _type_tmp), format, ##__VA_ARGS__); \
+      |                                                                 ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/trace_base.h:90:72: note: expanded from macro 'OS_LOG_CALL_WITH_FORMAT'
+   90 |                 (uint8_t *)__builtin_os_log_format(_os_fmt_buf, fmt, ##__VA_ARGS__), \
+      |                                                                        ^~~~~~~~~~~
+Tweak.m:72:82: note: use __bridge to convert directly (no change in ownership)
+Tweak.m:72:90: note: use CFBridgingRetain call to make an ARC object available as a +1 'void *'
+   72 |         LOG("Set preferredFramesPerSecond = %ld on MTKView %p", (long)targetFPS, (void *)view);
+      |                                                                                          ^
+      |                                                                                          CFBridgingRetain(
+Tweak.m:43:52: note: expanded from macro 'LOG'
+   43 |     os_log(get_log(), "[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                                    ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:220:62: note: expanded from macro 'os_log'
+  220 |         os_log_with_type(log, OS_LOG_TYPE_DEFAULT, format, ##__VA_ARGS__)
+      |                                                              ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:186:65: note: expanded from macro 'os_log_with_type'
+  186 |                 (&__dso_handle, _log_tmp, _type_tmp), format, ##__VA_ARGS__); \
+      |                                                                 ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/trace_base.h:90:72: note: expanded from macro 'OS_LOG_CALL_WITH_FORMAT'
+   90 |                 (uint8_t *)__builtin_os_log_format(_os_fmt_buf, fmt, ##__VA_ARGS__), \
+      |                                                                        ^
+Tweak.m:72:82: error: cast of Objective-C pointer type 'MTKView *' to C pointer type 'void *' requires a bridged cast
+   72 |         LOG("Set preferredFramesPerSecond = %ld on MTKView %p", (long)targetFPS, (void *)view);
+      |                                                                                  ^~~~~~~~~~~~
+Tweak.m:44:41: note: expanded from macro 'LOG'
+   44 |     NSLog(@"[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                         ^~~~~~~~~~~
+Tweak.m:72:82: note: use __bridge to convert directly (no change in ownership)
+Tweak.m:72:90: note: use CFBridgingRetain call to make an ARC object available as a +1 'void *'
+   72 |         LOG("Set preferredFramesPerSecond = %ld on MTKView %p", (long)targetFPS, (void *)view);
+      |                                                                                          ^
+      |                                                                                          CFBridgingRetain(
+Tweak.m:44:41: note: expanded from macro 'LOG'
+   44 |     NSLog(@"[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                         ^
+Tweak.m:89:42: error: cast of Objective-C pointer type 'MTKView *' to C pointer type 'void *' requires a bridged cast
+   89 |                 minFps, maxFps, prefFps, (void *)view);
+      |                                          ^~~~~~~~~~~~
+Tweak.m:43:52: note: expanded from macro 'LOG'
+   43 |     os_log(get_log(), "[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                                    ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:220:62: note: expanded from macro 'os_log'
+  220 |         os_log_with_type(log, OS_LOG_TYPE_DEFAULT, format, ##__VA_ARGS__)
+      |                                                              ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:186:65: note: expanded from macro 'os_log_with_type'
+  186 |                 (&__dso_handle, _log_tmp, _type_tmp), format, ##__VA_ARGS__); \
+      |                                                                 ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/trace_base.h:88:106: note: expanded from macro 'OS_LOG_CALL_WITH_FORMAT'
+   88 |         uint8_t _Alignas(16) OS_LOG_UNINITIALIZED _os_fmt_buf[__builtin_os_log_format_buffer_size(fmt, ##__VA_ARGS__)]; \
+      |                                                                                                          ^~~~~~~~~~~
+Tweak.m:89:42: note: use __bridge to convert directly (no change in ownership)
+Tweak.m:89:50: note: use CFBridgingRetain call to make an ARC object available as a +1 'void *'
+   89 |                 minFps, maxFps, prefFps, (void *)view);
+      |                                                  ^
+      |                                                  CFBridgingRetain(
+Tweak.m:43:52: note: expanded from macro 'LOG'
+   43 |     os_log(get_log(), "[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                                    ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:220:62: note: expanded from macro 'os_log'
+  220 |         os_log_with_type(log, OS_LOG_TYPE_DEFAULT, format, ##__VA_ARGS__)
+      |                                                              ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:186:65: note: expanded from macro 'os_log_with_type'
+  186 |                 (&__dso_handle, _log_tmp, _type_tmp), format, ##__VA_ARGS__); \
+      |                                                                 ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/trace_base.h:88:106: note: expanded from macro 'OS_LOG_CALL_WITH_FORMAT'
+   88 |         uint8_t _Alignas(16) OS_LOG_UNINITIALIZED _os_fmt_buf[__builtin_os_log_format_buffer_size(fmt, ##__VA_ARGS__)]; \
+      |                                                                                                          ^
+Tweak.m:89:42: error: cast of Objective-C pointer type 'MTKView *' to C pointer type 'void *' requires a bridged cast
+   89 |                 minFps, maxFps, prefFps, (void *)view);
+      |                                          ^~~~~~~~~~~~
+Tweak.m:43:52: note: expanded from macro 'LOG'
+   43 |     os_log(get_log(), "[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                                    ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:220:62: note: expanded from macro 'os_log'
+  220 |         os_log_with_type(log, OS_LOG_TYPE_DEFAULT, format, ##__VA_ARGS__)
+      |                                                              ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:186:65: note: expanded from macro 'os_log_with_type'
+  186 |                 (&__dso_handle, _log_tmp, _type_tmp), format, ##__VA_ARGS__); \
+      |                                                                 ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/trace_base.h:90:72: note: expanded from macro 'OS_LOG_CALL_WITH_FORMAT'
+   90 |                 (uint8_t *)__builtin_os_log_format(_os_fmt_buf, fmt, ##__VA_ARGS__), \
+      |                                                                        ^~~~~~~~~~~
+Tweak.m:89:42: note: use __bridge to convert directly (no change in ownership)
+Tweak.m:89:50: note: use CFBridgingRetain call to make an ARC object available as a +1 'void *'
+   89 |                 minFps, maxFps, prefFps, (void *)view);
+      |                                                  ^
+      |                                                  CFBridgingRetain(
+Tweak.m:43:52: note: expanded from macro 'LOG'
+   43 |     os_log(get_log(), "[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                                    ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:220:62: note: expanded from macro 'os_log'
+  220 |         os_log_with_type(log, OS_LOG_TYPE_DEFAULT, format, ##__VA_ARGS__)
+      |                                                              ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:186:65: note: expanded from macro 'os_log_with_type'
+  186 |                 (&__dso_handle, _log_tmp, _type_tmp), format, ##__VA_ARGS__); \
+      |                                                                 ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/trace_base.h:90:72: note: expanded from macro 'OS_LOG_CALL_WITH_FORMAT'
+   90 |                 (uint8_t *)__builtin_os_log_format(_os_fmt_buf, fmt, ##__VA_ARGS__), \
+      |                                                                        ^
+Tweak.m:89:42: error: cast of Objective-C pointer type 'MTKView *' to C pointer type 'void *' requires a bridged cast
+   89 |                 minFps, maxFps, prefFps, (void *)view);
+      |                                          ^~~~~~~~~~~~
+Tweak.m:44:41: note: expanded from macro 'LOG'
+   44 |     NSLog(@"[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                         ^~~~~~~~~~~
+Tweak.m:89:42: note: use __bridge to convert directly (no change in ownership)
+Tweak.m:89:50: note: use CFBridgingRetain call to make an ARC object available as a +1 'void *'
+   89 |                 minFps, maxFps, prefFps, (void *)view);
+      |                                                  ^
+      |                                                  CFBridgingRetain(
+Tweak.m:44:41: note: expanded from macro 'LOG'
+   44 |     NSLog(@"[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                         ^
+Tweak.m:98:42: error: cast of Objective-C pointer type 'CALayer *' to C pointer type 'void *' requires a bridged cast
+   98 |                 minFps, maxFps, prefFps, (void *)layer);
+      |                                          ^~~~~~~~~~~~~
+Tweak.m:43:52: note: expanded from macro 'LOG'
+   43 |     os_log(get_log(), "[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                                    ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:220:62: note: expanded from macro 'os_log'
+  220 |         os_log_with_type(log, OS_LOG_TYPE_DEFAULT, format, ##__VA_ARGS__)
+      |                                                              ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:186:65: note: expanded from macro 'os_log_with_type'
+  186 |                 (&__dso_handle, _log_tmp, _type_tmp), format, ##__VA_ARGS__); \
+      |                                                                 ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/trace_base.h:88:106: note: expanded from macro 'OS_LOG_CALL_WITH_FORMAT'
+   88 |         uint8_t _Alignas(16) OS_LOG_UNINITIALIZED _os_fmt_buf[__builtin_os_log_format_buffer_size(fmt, ##__VA_ARGS__)]; \
+      |                                                                                                          ^~~~~~~~~~~
+Tweak.m:98:42: note: use __bridge to convert directly (no change in ownership)
+Tweak.m:98:50: note: use CFBridgingRetain call to make an ARC object available as a +1 'void *'
+   98 |                 minFps, maxFps, prefFps, (void *)layer);
+      |                                                  ^
+      |                                                  CFBridgingRetain(
+Tweak.m:43:52: note: expanded from macro 'LOG'
+   43 |     os_log(get_log(), "[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                                    ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:220:62: note: expanded from macro 'os_log'
+  220 |         os_log_with_type(log, OS_LOG_TYPE_DEFAULT, format, ##__VA_ARGS__)
+      |                                                              ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:186:65: note: expanded from macro 'os_log_with_type'
+  186 |                 (&__dso_handle, _log_tmp, _type_tmp), format, ##__VA_ARGS__); \
+      |                                                                 ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/trace_base.h:88:106: note: expanded from macro 'OS_LOG_CALL_WITH_FORMAT'
+   88 |         uint8_t _Alignas(16) OS_LOG_UNINITIALIZED _os_fmt_buf[__builtin_os_log_format_buffer_size(fmt, ##__VA_ARGS__)]; \
+      |                                                                                                          ^
+Tweak.m:98:42: error: cast of Objective-C pointer type 'CALayer *' to C pointer type 'void *' requires a bridged cast
+   98 |                 minFps, maxFps, prefFps, (void *)layer);
+      |                                          ^~~~~~~~~~~~~
+Tweak.m:43:52: note: expanded from macro 'LOG'
+   43 |     os_log(get_log(), "[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                                    ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:220:62: note: expanded from macro 'os_log'
+  220 |         os_log_with_type(log, OS_LOG_TYPE_DEFAULT, format, ##__VA_ARGS__)
+      |                                                              ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:186:65: note: expanded from macro 'os_log_with_type'
+  186 |                 (&__dso_handle, _log_tmp, _type_tmp), format, ##__VA_ARGS__); \
+      |                                                                 ^~~~~~~~~~~
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/trace_base.h:90:72: note: expanded from macro 'OS_LOG_CALL_WITH_FORMAT'
+   90 |                 (uint8_t *)__builtin_os_log_format(_os_fmt_buf, fmt, ##__VA_ARGS__), \
+      |                                                                        ^~~~~~~~~~~
+Tweak.m:98:42: note: use __bridge to convert directly (no change in ownership)
+Tweak.m:98:50: note: use CFBridgingRetain call to make an ARC object available as a +1 'void *'
+   98 |                 minFps, maxFps, prefFps, (void *)layer);
+      |                                                  ^
+      |                                                  CFBridgingRetain(
+Tweak.m:43:52: note: expanded from macro 'LOG'
+   43 |     os_log(get_log(), "[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                                    ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:220:62: note: expanded from macro 'os_log'
+  220 |         os_log_with_type(log, OS_LOG_TYPE_DEFAULT, format, ##__VA_ARGS__)
+      |                                                              ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/log.h:186:65: note: expanded from macro 'os_log_with_type'
+  186 |                 (&__dso_handle, _log_tmp, _type_tmp), format, ##__VA_ARGS__); \
+      |                                                                 ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include/os/trace_base.h:90:72: note: expanded from macro 'OS_LOG_CALL_WITH_FORMAT'
+   90 |                 (uint8_t *)__builtin_os_log_format(_os_fmt_buf, fmt, ##__VA_ARGS__), \
+      |                                                                        ^
+Tweak.m:98:42: error: cast of Objective-C pointer type 'CALayer *' to C pointer type 'void *' requires a bridged cast
+   98 |                 minFps, maxFps, prefFps, (void *)layer);
+      |                                          ^~~~~~~~~~~~~
+Tweak.m:44:41: note: expanded from macro 'LOG'
+   44 |     NSLog(@"[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                         ^~~~~~~~~~~
+Tweak.m:98:42: note: use __bridge to convert directly (no change in ownership)
+Tweak.m:98:50: note: use CFBridgingRetain call to make an ARC object available as a +1 'void *'
+   98 |                 minFps, maxFps, prefFps, (void *)layer);
+      |                                                  ^
+      |                                                  CFBridgingRetain(
+Tweak.m:44:41: note: expanded from macro 'LOG'
+   44 |     NSLog(@"[IndigoThermalFix] " fmt, ##__VA_ARGS__); \
+      |                                         ^
+9 errors generated.
+Error: Process completed with exit code 1.
