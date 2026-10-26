@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+      - dev
     tags:
       - 'v*'
   pull_request:
@@ -37,7 +38,7 @@ jobs:
         run: |
           TARGET_FPS="${{ github.event.inputs.target_fps || '30' }}"
           echo "Compiling IndigoThermalFix.dylib with default target FPS: $TARGET_FPS"
-          
+
           # Attempt universal arm64 + arm64e build, falling back to arm64
           if xcrun -sdk iphoneos clang -arch arm64 -arch arm64e \
             -dynamiclib \
@@ -74,7 +75,7 @@ jobs:
 
           # Ad-hoc codesign for iOS loading
           codesign -s - --force IndigoThermalFix.dylib
-          
+
           # Verify binary architecture and load commands
           otool -hv -L IndigoThermalFix.dylib
 
@@ -93,12 +94,12 @@ jobs:
           name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Latest Release (IndigoThermalFix.dylib)' }}
           body: |
             ### IndigoThermalFix.dylib (Phase 1: Viewfinder FPS Cap)
-            
+
             This dynamic library hooks into Adobe Bonsai / Indigo's `MTKView` render pipeline:
             - **Root Cause Mitigated**: Prevents unthrottled 120 FPS ProMotion CADisplayLink rendering on iPhone 16 Pro / iPhone 15 Pro.
             - **Frame Rate Cap**: Enforces `preferredFramesPerSecond = 30` (or custom FPS) and configures `preferredFrameRateRange` on both `MTKView` and `CAMetalLayer`.
             - **No App Code Modified**: Pure runtime dynamic hook; leaves application binary untouched.
-            
+
             #### How to Inject:
             1. **Azule**:
                ```bash
