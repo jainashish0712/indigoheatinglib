@@ -2,11 +2,11 @@ TARGET = IndigoThermalFix.dylib
 CC = xcrun -sdk iphoneos clang
 ARCHS = -arch arm64 -arch arm64e
 MIN_IOS = -miphoneos-version-min=15.0
-CFLAGS = -O3 -fobjc-arc -Wall $(MIN_IOS)
+CFLAGS = -O3 -fobjc-arc -Wall -Wextra -Werror $(MIN_IOS)
 FRAMEWORKS = -framework Foundation -framework UIKit -framework MetalKit -framework QuartzCore
 LDFLAGS = -dynamiclib -install_name @rpath/$(TARGET) $(FRAMEWORKS)
 
-all: $(TARGET)
+all: $(TARGET) test
 
 $(TARGET): Tweak.m
 	@echo "Building $(TARGET)..."
@@ -14,7 +14,11 @@ $(TARGET): Tweak.m
 	@codesign -s - --force $@
 	@echo "Built and signed $(TARGET)"
 
+test:
+	@echo "Running automated verification tests..."
+	@python3 test_tweak.py
+
 clean:
 	rm -f $(TARGET)
 
-.PHONY: all clean
+.PHONY: all clean test

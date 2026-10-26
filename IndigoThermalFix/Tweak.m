@@ -3,13 +3,33 @@
 #import <MetalKit/MetalKit.h>
 #import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
+#import <objc/message.h>
 #import <os/log.h>
 
 #ifndef DEFAULT_TARGET_FPS
 #define DEFAULT_TARGET_FPS 30
 #endif
 
-// Log helper
+// Safe CAFrameRateRange definition if sub-header is not explicitly present
+#if __has_include(<QuartzCore/CAFrameRateRange.h>)
+#import <QuartzCore/CAFrameRateRange.h>
+#else
+typedef struct {
+    float minimum;
+    float maximum;
+    float preferred;
+} CAFrameRateRange;
+
+static inline CAFrameRateRange CAFrameRateRangeMake(float minimum, float maximum, float preferred) {
+    CAFrameRateRange range;
+    range.minimum = minimum;
+    range.maximum = maximum;
+    range.preferred = preferred;
+    return range;
+}
+#endif
+
+// Unified OS log helper
 static os_log_t get_log(void) {
     static os_log_t log = NULL;
     static dispatch_once_t onceToken;
@@ -46,37 +66,42 @@ static void apply_viewfinder_fps_cap(MTKView *view) {
 
     NSInteger targetFPS = get_target_fps();
 
-    // 1. Cap MTKView preferredFramesPerSecond
+    // 1. Cap MTKView preferredFramesPerSecond (Standard MTKView property available since iOS 9.0)
     if (view.preferredFramesPerSecond != targetFPS) {
         view.preferredFramesPerSecond = targetFPS;
-        LOG("Set preferredFramesPerSecond = %ld on MTKView %p", (long)targetFPS, view);
+        LOG("Set preferredFramesPerSecond = %ld on MTKView %p", (long)targetFPS, (void *)view);
     }
 
-    // 2. On iOS 15+ ProMotion displays, configure CAFrameRateRange
+    // 2. On iOS 15+ ProMotion displays, configure CAFrameRateRange dynamically via objc_msgSend
+    // to avoid compiler errors if headers omit property declarations.
     if (@available(iOS 15.0, *)) {
         float minFps = (targetFPS < 30) ? (float)targetFPS : 30.0f;
         float maxFps = (float)targetFPS;
         float prefFps = (float)targetFPS;
         CAFrameRateRange range = CAFrameRateRangeMake(minFps, maxFps, prefFps);
+        SEL setRangeSel = sel_registerName("setPreferredFrameRateRange:");
 
-        if ([view respondsToSelector:@selector(setPreferredFrameRateRange:)]) {
-            view.preferredFrameRateRange = range;
+        // Enforce range on MTKView if supported
+        if ([view respondsToSelector:setRangeSel]) {
+            void (*setMtkRange)(id, SEL, CAFrameRateRange) = (void (*)(id, SEL, CAFrameRateRange))objc_msgSend;
+            setMtkRange(view, setRangeSel, range);
             LOG("Set MTKView.preferredFrameRateRange = (min: %.1f, max: %.1f, pref: %.1f) on %p",
-                minFps, maxFps, prefFps, view);
+                minFps, maxFps, prefFps, (void *)view);
         }
 
-        // Also enforce range on backing CAMetalLayer
+        // Also enforce range on backing CAMetalLayer if supported
         CALayer *layer = view.layer;
-        if (layer && [layer respondsToSelector:@selector(setPreferredFrameRateRange:)]) {
-            layer.preferredFrameRateRange = range;
+        if (layer && [layer respondsToSelector:setRangeSel]) {
+            void (*setLayerRange)(id, SEL, CAFrameRateRange) = (void (*)(id, SEL, CAFrameRateRange))objc_msgSend;
+            setLayerRange(layer, setRangeSel, range);
             LOG("Set CALayer.preferredFrameRateRange = (min: %.1f, max: %.1f, pref: %.1f) on layer %p",
-                minFps, maxFps, prefFps, layer);
+                minFps, maxFps, prefFps, (void *)layer);
         }
     }
 }
 
 // -----------------------------------------------------------------------------
-// Method Swizzling
+// Method Swizzling Helper
 // -----------------------------------------------------------------------------
 
 static void safe_swizzle(Class cls, SEL sel, IMP newImp, IMP *origImp) {
@@ -91,6 +116,10 @@ static void safe_swizzle(Class cls, SEL sel, IMP newImp, IMP *origImp) {
         *origImp = method_setImplementation(origMethod, newImp);
     }
 }
+
+// -----------------------------------------------------------------------------
+// Method Hooks
+// -----------------------------------------------------------------------------
 
 // Hook -[MTKView setDelegate:]
 static void (*orig_MTKView_setDelegate)(MTKView *self, SEL _cmd, id<MTKViewDelegate> delegate);
@@ -108,9 +137,9 @@ static void hook_MTKView_setPaused(MTKView *self, SEL _cmd, BOOL paused) {
     }
 }
 
-// Hook -[MTKView initWithFrame:device:]
-static instancetype (*orig_MTKView_initWithFrame_device)(MTKView *self, SEL _cmd, CGRect frame, id<MTLDevice> device);
-static instancetype hook_MTKView_initWithFrame_device(MTKView *self, SEL _cmd, CGRect frame, id<MTLDevice> device) {
+// Hook -[MTKView initWithFrame:device:] (Returns MTKView * rather than C-invalid instancetype)
+static MTKView *(*orig_MTKView_initWithFrame_device)(MTKView *self, SEL _cmd, CGRect frame, id<MTLDevice> device);
+static MTKView *hook_MTKView_initWithFrame_device(MTKView *self, SEL _cmd, CGRect frame, id<MTLDevice> device) {
     MTKView *view = orig_MTKView_initWithFrame_device(self, _cmd, frame, device);
     if (view) {
         apply_viewfinder_fps_cap(view);
@@ -118,9 +147,9 @@ static instancetype hook_MTKView_initWithFrame_device(MTKView *self, SEL _cmd, C
     return view;
 }
 
-// Hook -[MTKView init]
-static instancetype (*orig_MTKView_init)(MTKView *self, SEL _cmd);
-static instancetype hook_MTKView_init(MTKView *self, SEL _cmd) {
+// Hook -[MTKView init] (Returns MTKView * rather than C-invalid instancetype)
+static MTKView *(*orig_MTKView_init)(MTKView *self, SEL _cmd);
+static MTKView *hook_MTKView_init(MTKView *self, SEL _cmd) {
     MTKView *view = orig_MTKView_init(self, _cmd);
     if (view) {
         apply_viewfinder_fps_cap(view);
@@ -146,21 +175,6 @@ static void hook_MTKView_setPreferredFramesPerSecond(MTKView *self, SEL _cmd, NS
     orig_MTKView_setPreferredFramesPerSecond(self, _cmd, clamped);
 }
 
-// Hook -[MTKView setPreferredFrameRateRange:]
-static void (*orig_MTKView_setPreferredFrameRateRange)(MTKView *self, SEL _cmd, CAFrameRateRange range);
-static void hook_MTKView_setPreferredFrameRateRange(MTKView *self, SEL _cmd, CAFrameRateRange range) {
-    if (@available(iOS 15.0, *)) {
-        NSInteger maxAllowed = get_target_fps();
-        if (range.maximum > maxAllowed) {
-            range.maximum = (float)maxAllowed;
-        }
-        if (range.preferred > maxAllowed) {
-            range.preferred = (float)maxAllowed;
-        }
-    }
-    orig_MTKView_setPreferredFrameRateRange(self, _cmd, range);
-}
-
 // -----------------------------------------------------------------------------
 // Constructor Entry Point
 // -----------------------------------------------------------------------------
@@ -169,7 +183,7 @@ __attribute__((constructor)) static void init_indigo_thermal_fix(void) {
     @autoreleasepool {
         NSString *bundleId = [[NSBundle mainBundle] bundleIdentifier];
         pid_t pid = [[NSProcessInfo processInfo] processIdentifier];
-        LOG("Initialized in process %d (%@)", pid, bundleId);
+        LOG("Initialized in process %d (%@)", pid, bundleId ? bundleId : @"unknown");
 
         Class mtkViewClass = objc_getClass("MTKView");
         if (!mtkViewClass) {
@@ -206,12 +220,6 @@ __attribute__((constructor)) static void init_indigo_thermal_fix(void) {
         safe_swizzle(mtkViewClass, @selector(setPreferredFramesPerSecond:),
                      (IMP)hook_MTKView_setPreferredFramesPerSecond,
                      (IMP *)&orig_MTKView_setPreferredFramesPerSecond);
-
-        if (@available(iOS 15.0, *)) {
-            safe_swizzle(mtkViewClass, @selector(setPreferredFrameRateRange:),
-                         (IMP)hook_MTKView_setPreferredFrameRateRange,
-                         (IMP *)&orig_MTKView_setPreferredFrameRateRange);
-        }
 
         LOG("Successfully hooked MTKView methods. Viewfinder frame rate capped at %ld FPS.",
             (long)get_target_fps());

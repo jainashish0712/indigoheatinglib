@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   build:
-    name: Build IndigoThermalFix.dylib
+    name: Build & Test IndigoThermalFix.dylib
     runs-on: macos-latest
 
     steps:
@@ -33,6 +33,11 @@ jobs:
           sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
           xcrun --sdk iphoneos --show-sdk-path
 
+      - name: Pre-build Source & Syntax Verification Tests
+        working-directory: IndigoThermalFix
+        run: |
+          python3 test_tweak.py
+
       - name: Compile IndigoThermalFix.dylib
         working-directory: IndigoThermalFix
         run: |
@@ -43,6 +48,7 @@ jobs:
           if xcrun -sdk iphoneos clang -arch arm64 -arch arm64e \
             -dynamiclib \
             -O3 \
+            -Wall -Wextra -Werror \
             -fobjc-arc \
             -DDEFAULT_TARGET_FPS=$TARGET_FPS \
             -framework Foundation \
@@ -60,6 +66,7 @@ jobs:
             xcrun -sdk iphoneos clang -arch arm64 \
               -dynamiclib \
               -O3 \
+              -Wall -Wextra -Werror \
               -fobjc-arc \
               -DDEFAULT_TARGET_FPS=$TARGET_FPS \
               -framework Foundation \
@@ -79,6 +86,11 @@ jobs:
           # Verify binary architecture and load commands
           otool -hv -L IndigoThermalFix.dylib
 
+      - name: Post-build Binary Verification Tests
+        working-directory: IndigoThermalFix
+        run: |
+          python3 test_tweak.py
+
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -88,7 +100,7 @@ jobs:
 
       - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
-        if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev'
         with:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'latest' }}
           name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Latest Release (IndigoThermalFix.dylib)' }}
@@ -97,7 +109,7 @@ jobs:
 
             This dynamic library hooks into Adobe Bonsai / Indigo's `MTKView` render pipeline:
             - **Root Cause Mitigated**: Prevents unthrottled 120 FPS ProMotion CADisplayLink rendering on iPhone 16 Pro / iPhone 15 Pro.
-            - **Frame Rate Cap**: Enforces `preferredFramesPerSecond = 30` (or custom FPS) and configures `preferredFrameRateRange` on both `MTKView` and `CAMetalLayer`.
+            - **Frame Rate Cap**: Enforces `preferredFramesPerSecond = 30` (or custom FPS) and dynamically configures `preferredFrameRateRange` on both `MTKView` and `CAMetalLayer`.
             - **No App Code Modified**: Pure runtime dynamic hook; leaves application binary untouched.
 
             #### How to Inject:
