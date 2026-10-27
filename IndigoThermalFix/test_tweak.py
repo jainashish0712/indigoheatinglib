@@ -2,7 +2,7 @@
 """
 Comprehensive Automated Test Suite for IndigoThermalFix.
 Performs deep static analysis, ARC bridging validation, clang compatibility checks,
-and Mach-O binary structural verification.
+framework linkages, Swift metadata patching validation, and Mach-O binary structural verification.
 """
 
 import os
@@ -44,12 +44,10 @@ class TestTweakARCAndClangCompatibility(unittest.TestCase):
 
     def test_all_pointer_format_args_are_bridged(self):
         """Ensure all %p format specifiers in LOG/NSLog/os_log pass bridged pointers or raw pointers."""
-        # Find all LOG(...) calls
         log_calls = re.findall(r'LOG\s*\((.*?)\);', self.clean_code, re.DOTALL)
         self.assertGreater(len(log_calls), 0, "No LOG calls found to inspect")
 
         for call in log_calls:
-            # Check if format string contains %p
             if "%p" in call:
                 self.assertIn(
                     "__bridge void *",
@@ -92,9 +90,14 @@ class TestTweakARCAndClangCompatibility(unittest.TestCase):
             "<UIKit/UIKit.h>",
             "<MetalKit/MetalKit.h>",
             "<QuartzCore/QuartzCore.h>",
+            "<AVFoundation/AVFoundation.h>",
+            "<CoreMedia/CoreMedia.h>",
             "<objc/runtime.h>",
             "<objc/message.h>",
             "<os/log.h>",
+            "<dlfcn.h>",
+            "<sys/mman.h>",
+            "<unistd.h>",
         ]
         for header in required_headers:
             self.assertIn(header, self.code, f"Missing required import: {header}")
@@ -116,6 +119,10 @@ class TestTweakARCAndClangCompatibility(unittest.TestCase):
             ("init", "hook_MTKView_init", "orig_MTKView_init"),
             ("didMoveToWindow", "hook_MTKView_didMoveToWindow", "orig_MTKView_didMoveToWindow"),
             ("setPreferredFramesPerSecond:", "hook_MTKView_setPreferredFramesPerSecond", "orig_MTKView_setPreferredFramesPerSecond"),
+            ("startRunning", "hook_AVCaptureSession_startRunning", "orig_AVCaptureSession_startRunning"),
+            ("addInput:", "hook_AVCaptureSession_addInput", "orig_AVCaptureSession_addInput"),
+            ("addOutput:", "hook_AVCaptureSession_addOutput", "orig_AVCaptureSession_addOutput"),
+            ("setSampleBufferDelegate:queue:", "hook_AVCaptureVideoDataOutput_setSampleBufferDelegate_queue", "orig_AVCaptureVideoDataOutput_setSampleBufferDelegate_queue"),
         ]
 
         for selector, hook_func, orig_ptr in expected_hooks:
@@ -137,6 +144,25 @@ class TestTweakARCAndClangCompatibility(unittest.TestCase):
         endifs = len(re.findall(r"^\s*#\s*endif\b", self.clean_code, re.MULTILINE))
         self.assertEqual(ifs, endifs, f"Mismatched #if ({ifs}) and #endif ({endifs})")
 
+    def test_swift_vtable_patch_logic(self):
+        """Verify Swift ModelSpecificSettings vtable hooking logic and slot offsets."""
+        self.assertIn("ModelSpecificSettingsCN", self.clean_code, "Missing Swift metadata symbol lookup")
+        self.assertIn("hook_is17Series", self.clean_code, "Missing hook_is17Series function")
+        self.assertIn("hook_shutterButtonRateLimitDuration", self.clean_code, "Missing hook_shutterButtonRateLimitDuration function")
+        self.assertIn("vtable[26]", self.clean_code, "Slot 26 (is17Series) must be patched in vtable")
+        self.assertIn("vtable[27]", self.clean_code, "Slot 27 (shutterButtonRateLimitDuration) must be patched in vtable")
+        self.assertIn("mprotect", self.clean_code, "mprotect should be invoked to ensure writable memory on vtable page")
+
+    def test_avfoundation_capping_logic(self):
+        """Verify AVFoundation device and video output frame duration capping logic."""
+        self.assertIn("activeVideoMinFrameDuration", self.clean_code, "Missing activeVideoMinFrameDuration")
+        self.assertIn("activeVideoMaxFrameDuration", self.clean_code, "Missing activeVideoMaxFrameDuration")
+        self.assertIn("videoMinFrameDuration", self.clean_code, "Missing videoMinFrameDuration")
+        self.assertIn("videoMaxFrameDuration", self.clean_code, "Missing videoMaxFrameDuration")
+        self.assertIn("lockForConfiguration:", self.clean_code, "Device lockForConfiguration must be used")
+        self.assertIn("unlockForConfiguration", self.clean_code, "Device unlockForConfiguration must be used")
+        self.assertIn("videoSupportedFrameRateRanges", self.clean_code, "Frame rate ranges must be validated")
+
 
 class TestBuildConfiguration(unittest.TestCase):
     """Verify Makefile and GitHub Actions workflow configuration."""
@@ -150,6 +176,8 @@ class TestBuildConfiguration(unittest.TestCase):
         self.assertIn("-Wall -Wextra -Werror", wf_content)
         self.assertIn("-framework MetalKit", wf_content)
         self.assertIn("-framework QuartzCore", wf_content)
+        self.assertIn("-framework AVFoundation", wf_content)
+        self.assertIn("-framework CoreMedia", wf_content)
         self.assertIn("python3 test_tweak.py", wf_content)
         self.assertIn("refs/heads/dev", wf_content)
 
@@ -161,6 +189,8 @@ class TestBuildConfiguration(unittest.TestCase):
         self.assertIn("-Wall -Wextra -Werror", make_content)
         self.assertIn("MetalKit", make_content)
         self.assertIn("QuartzCore", make_content)
+        self.assertIn("AVFoundation", make_content)
+        self.assertIn("CoreMedia", make_content)
         self.assertIn("Tweak.m", make_content)
 
 

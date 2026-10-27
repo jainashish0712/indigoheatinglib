@@ -2,9 +2,14 @@
 #import <UIKit/UIKit.h>
 #import <MetalKit/MetalKit.h>
 #import <QuartzCore/QuartzCore.h>
+#import <AVFoundation/AVFoundation.h>
+#import <CoreMedia/CoreMedia.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
 #import <os/log.h>
+#import <dlfcn.h>
+#import <sys/mman.h>
+#import <unistd.h>
 
 #ifndef DEFAULT_TARGET_FPS
 #define DEFAULT_TARGET_FPS 30
@@ -60,7 +65,10 @@ static NSInteger get_target_fps(void) {
     return targetFPS;
 }
 
-// Function to apply frame rate limit to MTKView and its backing layer
+// -----------------------------------------------------------------------------
+// Approach 1: Viewfinder MTKView FPS Cap (Downstream Consumer)
+// -----------------------------------------------------------------------------
+
 static void apply_viewfinder_fps_cap(MTKView *view) {
     if (!view || ![view isKindOfClass:[MTKView class]]) return;
 
@@ -73,7 +81,6 @@ static void apply_viewfinder_fps_cap(MTKView *view) {
     }
 
     // 2. On iOS 15+ ProMotion displays, configure CAFrameRateRange dynamically via objc_msgSend
-    // to avoid compiler errors if headers omit property declarations.
     if (@available(iOS 15.0, *)) {
         float minFps = (targetFPS < 30) ? (float)targetFPS : 30.0f;
         float maxFps = (float)targetFPS;
@@ -101,6 +108,131 @@ static void apply_viewfinder_fps_cap(MTKView *view) {
 }
 
 // -----------------------------------------------------------------------------
+// Approach 1: AVFoundation Camera Sensor & Preview Stream FPS Cap (Upstream Producer)
+// -----------------------------------------------------------------------------
+
+static void apply_device_fps_cap(AVCaptureDevice *device, NSInteger targetFPS) {
+    if (!device) return;
+    if (![device hasMediaType:AVMediaTypeVideo]) return;
+
+    CMTime frameDuration = CMTimeMake(1, (int32_t)targetFPS);
+    NSError *error = nil;
+    if ([device lockForConfiguration:&error]) {
+        @try {
+            BOOL supported = NO;
+            for (AVFrameRateRange *range in device.activeFormat.videoSupportedFrameRateRanges) {
+                if (range.minFrameRate <= (Float64)targetFPS && (Float64)targetFPS <= range.maxFrameRate) {
+                    supported = YES;
+                    break;
+                }
+            }
+            if (supported) {
+                device.activeVideoMinFrameDuration = frameDuration;
+                device.activeVideoMaxFrameDuration = frameDuration;
+                LOG("Set AVCaptureDevice %p frame duration to 1/%ld s (%ld FPS)",
+                    (__bridge void *)device, (long)targetFPS, (long)targetFPS);
+            } else {
+                LOG("AVCaptureDevice %p format does not support %ld FPS directly",
+                    (__bridge void *)device, (long)targetFPS);
+            }
+        } @catch (NSException *e) {
+            LOG("Exception while setting AVCaptureDevice %p frame duration: %@",
+                (__bridge void *)device, e.reason);
+        }
+        [device unlockForConfiguration];
+    } else {
+        LOG("Could not lock AVCaptureDevice %p: %@",
+            (__bridge void *)device, error ? [error localizedDescription] : @"unknown");
+    }
+}
+
+static void apply_video_output_fps_cap(AVCaptureVideoDataOutput *output, NSInteger targetFPS) {
+    if (!output || ![output isKindOfClass:[AVCaptureVideoDataOutput class]]) return;
+
+    CMTime frameDuration = CMTimeMake(1, (int32_t)targetFPS);
+    for (AVCaptureConnection *conn in output.connections) {
+        if ([conn isVideoMinFrameDurationSupported]) {
+            conn.videoMinFrameDuration = frameDuration;
+            LOG("Set AVCaptureConnection %p videoMinFrameDuration to 1/%ld s",
+                (__bridge void *)conn, (long)targetFPS);
+        }
+        if ([conn isVideoMaxFrameDurationSupported]) {
+            conn.videoMaxFrameDuration = frameDuration;
+            LOG("Set AVCaptureConnection %p videoMaxFrameDuration to 1/%ld s",
+                (__bridge void *)conn, (long)targetFPS);
+        }
+    }
+}
+
+static void apply_session_fps_cap(AVCaptureSession *session) {
+    if (!session || ![session isKindOfClass:[AVCaptureSession class]]) return;
+
+    NSInteger targetFPS = get_target_fps();
+
+    // 1. Cap each video capture device input to physically limit sensor ISP readout
+    for (AVCaptureInput *input in session.inputs) {
+        if ([input isKindOfClass:[AVCaptureDeviceInput class]]) {
+            apply_device_fps_cap(((AVCaptureDeviceInput *)input).device, targetFPS);
+        }
+    }
+
+    // 2. Cap each video data output connection feeding preview demosaic
+    for (AVCaptureOutput *output in session.outputs) {
+        if ([output isKindOfClass:[AVCaptureVideoDataOutput class]]) {
+            apply_video_output_fps_cap((AVCaptureVideoDataOutput *)output, targetFPS);
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Approach 3 & 4: Swift ModelSpecificSettings VTable Patches (is17Series & Burst Pacing)
+// -----------------------------------------------------------------------------
+
+// Hook is17Series (Slot 26) -> Force false for iPhone 16 Pro to eliminate inverted bitmask
+static bool hook_is17Series(void *self) {
+    (void)self;
+    LOG("ModelSpecificSettings.is17Series intercepted -> returning false");
+    return false;
+}
+
+// Hook shutterButtonRateLimitDuration (Slot 27) -> Pace rapid bursts at 0.4s to prevent thermal queue explosion
+static double hook_shutterButtonRateLimitDuration(void *self) {
+    (void)self;
+    LOG("ModelSpecificSettings.shutterButtonRateLimitDuration intercepted -> returning 0.4s");
+    return 0.4;
+}
+
+static void patch_swift_model_settings(void) {
+    // Symbol: _$s61helios_experimental_bonsai_camera_app_model_specific_settings21ModelSpecificSettingsCN
+    const char *sym_name = "$s61helios_experimental_bonsai_camera_app_model_specific_settings21ModelSpecificSettingsCN";
+    void *sym = dlsym(RTLD_DEFAULT, sym_name);
+    if (!sym) {
+        sym = dlsym(RTLD_DEFAULT, "_$s61helios_experimental_bonsai_camera_app_model_specific_settings21ModelSpecificSettingsCN");
+    }
+    if (!sym) {
+        LOG("ModelSpecificSettings metadata symbol not resolved via dlsym.");
+        return;
+    }
+
+    uintptr_t *vtable = (uintptr_t *)sym;
+    LOG("Found ModelSpecificSettings metadata at 0x%lx", (unsigned long)(uintptr_t)vtable);
+
+    // Slot 26 (+208 bytes): is17Series
+    // Slot 27 (+216 bytes): shutterButtonRateLimitDuration
+    long page_size_val = sysconf(_SC_PAGESIZE);
+    size_t pageSize = (page_size_val > 0) ? (size_t)page_size_val : 16384;
+    uintptr_t addr = (uintptr_t)&vtable[26];
+    uintptr_t pageStart = addr & ~(pageSize - 1);
+    mprotect((char *)pageStart, pageSize * 2, PROT_READ | PROT_WRITE);
+
+    vtable[26] = (uintptr_t)hook_is17Series;
+    LOG("Patched ModelSpecificSettings.is17Series (slot 26) -> 0x%lx", (unsigned long)(uintptr_t)hook_is17Series);
+
+    vtable[27] = (uintptr_t)hook_shutterButtonRateLimitDuration;
+    LOG("Patched ModelSpecificSettings.shutterButtonRateLimitDuration (slot 27) -> 0x%lx", (unsigned long)(uintptr_t)hook_shutterButtonRateLimitDuration);
+}
+
+// -----------------------------------------------------------------------------
 // Method Swizzling Helper
 // -----------------------------------------------------------------------------
 
@@ -120,7 +252,7 @@ static void safe_swizzle(Class cls, SEL sel, IMP newImp, IMP *origImp) {
 }
 
 // -----------------------------------------------------------------------------
-// Method Hooks
+// MTKView Method Hooks
 // -----------------------------------------------------------------------------
 
 // Hook -[MTKView setDelegate:]
@@ -178,6 +310,43 @@ static void hook_MTKView_setPreferredFramesPerSecond(MTKView *self, SEL _cmd, NS
 }
 
 // -----------------------------------------------------------------------------
+// AVCaptureSession & AVCaptureVideoDataOutput Method Hooks
+// -----------------------------------------------------------------------------
+
+// Hook -[AVCaptureSession startRunning]
+static void (*orig_AVCaptureSession_startRunning)(AVCaptureSession *self, SEL _cmd);
+static void hook_AVCaptureSession_startRunning(AVCaptureSession *self, SEL _cmd) {
+    apply_session_fps_cap(self);
+    orig_AVCaptureSession_startRunning(self, _cmd);
+    apply_session_fps_cap(self);
+}
+
+// Hook -[AVCaptureSession addInput:]
+static void (*orig_AVCaptureSession_addInput)(AVCaptureSession *self, SEL _cmd, AVCaptureInput *input);
+static void hook_AVCaptureSession_addInput(AVCaptureSession *self, SEL _cmd, AVCaptureInput *input) {
+    orig_AVCaptureSession_addInput(self, _cmd, input);
+    if ([input isKindOfClass:[AVCaptureDeviceInput class]]) {
+        apply_device_fps_cap(((AVCaptureDeviceInput *)input).device, get_target_fps());
+    }
+}
+
+// Hook -[AVCaptureSession addOutput:]
+static void (*orig_AVCaptureSession_addOutput)(AVCaptureSession *self, SEL _cmd, AVCaptureOutput *output);
+static void hook_AVCaptureSession_addOutput(AVCaptureSession *self, SEL _cmd, AVCaptureOutput *output) {
+    orig_AVCaptureSession_addOutput(self, _cmd, output);
+    if ([output isKindOfClass:[AVCaptureVideoDataOutput class]]) {
+        apply_video_output_fps_cap((AVCaptureVideoDataOutput *)output, get_target_fps());
+    }
+}
+
+// Hook -[AVCaptureVideoDataOutput setSampleBufferDelegate:queue:]
+static void (*orig_AVCaptureVideoDataOutput_setSampleBufferDelegate_queue)(AVCaptureVideoDataOutput *self, SEL _cmd, id<AVCaptureVideoDataOutputSampleBufferDelegate> delegate, dispatch_queue_t queue);
+static void hook_AVCaptureVideoDataOutput_setSampleBufferDelegate_queue(AVCaptureVideoDataOutput *self, SEL _cmd, id<AVCaptureVideoDataOutputSampleBufferDelegate> delegate, dispatch_queue_t queue) {
+    orig_AVCaptureVideoDataOutput_setSampleBufferDelegate_queue(self, _cmd, delegate, queue);
+    apply_video_output_fps_cap(self, get_target_fps());
+}
+
+// -----------------------------------------------------------------------------
 // Constructor Entry Point
 // -----------------------------------------------------------------------------
 
@@ -187,46 +356,80 @@ __attribute__((constructor)) static void init_indigo_thermal_fix(void) {
         pid_t pid = [[NSProcessInfo processInfo] processIdentifier];
         LOG("Initialized in process %d (%@)", pid, bundleId ? bundleId : @"unknown");
 
+        // 1. Resolve & Hook MTKView
         Class mtkViewClass = objc_getClass("MTKView");
         if (!mtkViewClass) {
-            // Attempt to load MetalKit framework if not yet loaded
             [[NSBundle bundleWithPath:@"/System/Library/Frameworks/MetalKit.framework"] load];
             mtkViewClass = objc_getClass("MTKView");
         }
 
-        if (!mtkViewClass) {
-            LOG("ERROR: MTKView class could not be resolved. Swizzling aborted.");
-            return;
+        // 2. Resolve & Hook AVCaptureSession and AVCaptureVideoDataOutput
+        Class avSessionClass = objc_getClass("AVCaptureSession");
+        if (!avSessionClass) {
+            [[NSBundle bundleWithPath:@"/System/Library/Frameworks/AVFoundation.framework"] load];
+            avSessionClass = objc_getClass("AVCaptureSession");
         }
+        Class avVideoOutputClass = objc_getClass("AVCaptureVideoDataOutput");
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wcast-function-type"
-        safe_swizzle(mtkViewClass, @selector(setDelegate:),
-                     (IMP)hook_MTKView_setDelegate,
-                     (IMP *)&orig_MTKView_setDelegate);
+        if (mtkViewClass) {
+            safe_swizzle(mtkViewClass, @selector(setDelegate:),
+                         (IMP)hook_MTKView_setDelegate,
+                         (IMP *)&orig_MTKView_setDelegate);
 
-        safe_swizzle(mtkViewClass, @selector(setPaused:),
-                     (IMP)hook_MTKView_setPaused,
-                     (IMP *)&orig_MTKView_setPaused);
+            safe_swizzle(mtkViewClass, @selector(setPaused:),
+                         (IMP)hook_MTKView_setPaused,
+                         (IMP *)&orig_MTKView_setPaused);
 
-        safe_swizzle(mtkViewClass, @selector(initWithFrame:device:),
-                     (IMP)hook_MTKView_initWithFrame_device,
-                     (IMP *)&orig_MTKView_initWithFrame_device);
+            safe_swizzle(mtkViewClass, @selector(initWithFrame:device:),
+                         (IMP)hook_MTKView_initWithFrame_device,
+                         (IMP *)&orig_MTKView_initWithFrame_device);
 
-        safe_swizzle(mtkViewClass, @selector(init),
-                     (IMP)hook_MTKView_init,
-                     (IMP *)&orig_MTKView_init);
+            safe_swizzle(mtkViewClass, @selector(init),
+                         (IMP)hook_MTKView_init,
+                         (IMP *)&orig_MTKView_init);
 
-        safe_swizzle(mtkViewClass, @selector(didMoveToWindow),
-                     (IMP)hook_MTKView_didMoveToWindow,
-                     (IMP *)&orig_MTKView_didMoveToWindow);
+            safe_swizzle(mtkViewClass, @selector(didMoveToWindow),
+                         (IMP)hook_MTKView_didMoveToWindow,
+                         (IMP *)&orig_MTKView_didMoveToWindow);
 
-        safe_swizzle(mtkViewClass, @selector(setPreferredFramesPerSecond:),
-                     (IMP)hook_MTKView_setPreferredFramesPerSecond,
-                     (IMP *)&orig_MTKView_setPreferredFramesPerSecond);
+            safe_swizzle(mtkViewClass, @selector(setPreferredFramesPerSecond:),
+                         (IMP)hook_MTKView_setPreferredFramesPerSecond,
+                         (IMP *)&orig_MTKView_setPreferredFramesPerSecond);
+        } else {
+            LOG("WARNING: MTKView class could not be resolved.");
+        }
+
+        if (avSessionClass) {
+            safe_swizzle(avSessionClass, @selector(startRunning),
+                         (IMP)hook_AVCaptureSession_startRunning,
+                         (IMP *)&orig_AVCaptureSession_startRunning);
+
+            safe_swizzle(avSessionClass, @selector(addInput:),
+                         (IMP)hook_AVCaptureSession_addInput,
+                         (IMP *)&orig_AVCaptureSession_addInput);
+
+            safe_swizzle(avSessionClass, @selector(addOutput:),
+                         (IMP)hook_AVCaptureSession_addOutput,
+                         (IMP *)&orig_AVCaptureSession_addOutput);
+        } else {
+            LOG("WARNING: AVCaptureSession class could not be resolved.");
+        }
+
+        if (avVideoOutputClass) {
+            safe_swizzle(avVideoOutputClass, @selector(setSampleBufferDelegate:queue:),
+                         (IMP)hook_AVCaptureVideoDataOutput_setSampleBufferDelegate_queue,
+                         (IMP *)&orig_AVCaptureVideoDataOutput_setSampleBufferDelegate_queue);
+        } else {
+            LOG("WARNING: AVCaptureVideoDataOutput class could not be resolved.");
+        }
 #pragma clang diagnostic pop
 
-        LOG("Successfully hooked MTKView methods. Viewfinder frame rate capped at %ld FPS.",
+        // 3. Patch Swift ModelSpecificSettings vtable (is17Series & Burst Pacing)
+        patch_swift_model_settings();
+
+        LOG("Successfully hooked camera pipeline and viewfinder. Target frame rate capped at %ld FPS.",
             (long)get_target_fps());
     }
 }
