@@ -2,7 +2,8 @@
 """
 Comprehensive Automated Test Suite for IndigoThermalFix.
 Performs deep static analysis, ARC bridging validation, clang compatibility checks,
-framework linkages, Swift metadata patching validation, and Mach-O binary structural verification.
+framework linkages, Swift metadata patching validation, deprecation checks,
+and Mach-O binary structural verification.
 """
 
 import os
@@ -32,9 +33,6 @@ class TestTweakARCAndClangCompatibility(unittest.TestCase):
 
     def test_no_unbridged_void_pointer_casts(self):
         """CRITICAL: Ensure NO Objective-C objects are cast to (void *) without __bridge."""
-        # Under ARC (-fobjc-arc), casting an ObjC pointer to (void *) without __bridge causes fatal error:
-        # "cast of Objective-C pointer type '...' to C pointer type 'void *' requires a bridged cast"
-        # Match any (void *) cast not preceded by __bridge
         unbridged_matches = re.findall(r'(?<!__bridge\s)\(\s*void\s*\*\s*\)\s*([a-zA-Z0-9_]+)', self.clean_code)
         self.assertEqual(
             len(unbridged_matches),
@@ -131,8 +129,9 @@ class TestTweakARCAndClangCompatibility(unittest.TestCase):
             self.assertIn(orig_ptr, self.clean_code, f"Missing orig pointer {orig_ptr}")
 
     def test_clang_diagnostic_pragmas_present(self):
-        """Ensure -Wcast-function-type is suppressed around function pointer to IMP casts."""
+        """Ensure -Wcast-function-type and -Wdeprecated-declarations are suppressed."""
         self.assertIn("-Wcast-function-type", self.code, "Missing clang diagnostic pragma for -Wcast-function-type")
+        self.assertIn("-Wdeprecated-declarations", self.code, "Missing clang diagnostic pragma for -Wdeprecated-declarations")
 
     def test_balanced_syntax_and_preprocessor(self):
         """Verify braces, parens, brackets, and preprocessor directives are completely balanced."""
@@ -153,15 +152,30 @@ class TestTweakARCAndClangCompatibility(unittest.TestCase):
         self.assertIn("vtable[27]", self.clean_code, "Slot 27 (shutterButtonRateLimitDuration) must be patched in vtable")
         self.assertIn("mprotect", self.clean_code, "mprotect should be invoked to ensure writable memory on vtable page")
 
+    def test_no_deprecated_avfoundation_properties(self):
+        """CRITICAL: Ensure deprecated AVCaptureConnection frame duration properties are NOT used."""
+        deprecated_properties = [
+            r"\bvideoMinFrameDuration\b",
+            r"\bvideoMaxFrameDuration\b",
+            r"\bisVideoMinFrameDurationSupported\b",
+            r"\bisVideoMaxFrameDurationSupported\b",
+        ]
+        for prop in deprecated_properties:
+            matches = re.findall(prop, self.clean_code)
+            self.assertEqual(
+                len(matches),
+                0,
+                f"Found deprecated AVFoundation property '{prop}'. Must use AVCaptureDevice activeVideoMin/MaxFrameDuration."
+            )
+
     def test_avfoundation_capping_logic(self):
         """Verify AVFoundation device and video output frame duration capping logic."""
         self.assertIn("activeVideoMinFrameDuration", self.clean_code, "Missing activeVideoMinFrameDuration")
         self.assertIn("activeVideoMaxFrameDuration", self.clean_code, "Missing activeVideoMaxFrameDuration")
-        self.assertIn("videoMinFrameDuration", self.clean_code, "Missing videoMinFrameDuration")
-        self.assertIn("videoMaxFrameDuration", self.clean_code, "Missing videoMaxFrameDuration")
         self.assertIn("lockForConfiguration:", self.clean_code, "Device lockForConfiguration must be used")
         self.assertIn("unlockForConfiguration", self.clean_code, "Device unlockForConfiguration must be used")
         self.assertIn("videoSupportedFrameRateRanges", self.clean_code, "Frame rate ranges must be validated")
+        self.assertIn("alwaysDiscardsLateVideoFrames", self.clean_code, "alwaysDiscardsLateVideoFrames must be configured")
 
 
 class TestBuildConfiguration(unittest.TestCase):
@@ -174,6 +188,7 @@ class TestBuildConfiguration(unittest.TestCase):
 
         self.assertIn("working-directory: IndigoThermalFix", wf_content)
         self.assertIn("-Wall -Wextra -Werror", wf_content)
+        self.assertIn("-Wno-error=deprecated-declarations", wf_content)
         self.assertIn("-framework MetalKit", wf_content)
         self.assertIn("-framework QuartzCore", wf_content)
         self.assertIn("-framework AVFoundation", wf_content)
@@ -187,6 +202,7 @@ class TestBuildConfiguration(unittest.TestCase):
             make_content = f.read()
 
         self.assertIn("-Wall -Wextra -Werror", make_content)
+        self.assertIn("-Wno-error=deprecated-declarations", make_content)
         self.assertIn("MetalKit", make_content)
         self.assertIn("QuartzCore", make_content)
         self.assertIn("AVFoundation", make_content)

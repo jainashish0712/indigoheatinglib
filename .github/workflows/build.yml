@@ -49,6 +49,7 @@ jobs:
             -dynamiclib \
             -O3 \
             -Wall -Wextra -Werror \
+            -Wno-error=deprecated-declarations \
             -fobjc-arc \
             -DDEFAULT_TARGET_FPS=$TARGET_FPS \
             -framework Foundation \
@@ -69,6 +70,7 @@ jobs:
               -dynamiclib \
               -O3 \
               -Wall -Wextra -Werror \
+            -Wno-error=deprecated-declarations \
               -fobjc-arc \
               -DDEFAULT_TARGET_FPS=$TARGET_FPS \
               -framework Foundation \

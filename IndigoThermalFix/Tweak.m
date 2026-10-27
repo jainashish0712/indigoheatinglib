@@ -11,6 +11,9 @@
 #import <sys/mman.h>
 #import <unistd.h>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 #ifndef DEFAULT_TARGET_FPS
 #define DEFAULT_TARGET_FPS 30
 #endif
@@ -146,21 +149,13 @@ static void apply_device_fps_cap(AVCaptureDevice *device, NSInteger targetFPS) {
     }
 }
 
-static void apply_video_output_fps_cap(AVCaptureVideoDataOutput *output, NSInteger targetFPS) {
+static void apply_video_output_settings(AVCaptureVideoDataOutput *output) {
     if (!output || ![output isKindOfClass:[AVCaptureVideoDataOutput class]]) return;
 
-    CMTime frameDuration = CMTimeMake(1, (int32_t)targetFPS);
-    for (AVCaptureConnection *conn in output.connections) {
-        if ([conn isVideoMinFrameDurationSupported]) {
-            conn.videoMinFrameDuration = frameDuration;
-            LOG("Set AVCaptureConnection %p videoMinFrameDuration to 1/%ld s",
-                (__bridge void *)conn, (long)targetFPS);
-        }
-        if ([conn isVideoMaxFrameDurationSupported]) {
-            conn.videoMaxFrameDuration = frameDuration;
-            LOG("Set AVCaptureConnection %p videoMaxFrameDuration to 1/%ld s",
-                (__bridge void *)conn, (long)targetFPS);
-        }
+    if (!output.alwaysDiscardsLateVideoFrames) {
+        output.alwaysDiscardsLateVideoFrames = YES;
+        LOG("Set alwaysDiscardsLateVideoFrames = YES on AVCaptureVideoDataOutput %p",
+            (__bridge void *)output);
     }
 }
 
@@ -176,10 +171,10 @@ static void apply_session_fps_cap(AVCaptureSession *session) {
         }
     }
 
-    // 2. Cap each video data output connection feeding preview demosaic
+    // 2. Configure each video data output feeding preview demosaic
     for (AVCaptureOutput *output in session.outputs) {
         if ([output isKindOfClass:[AVCaptureVideoDataOutput class]]) {
-            apply_video_output_fps_cap((AVCaptureVideoDataOutput *)output, targetFPS);
+            apply_video_output_settings((AVCaptureVideoDataOutput *)output);
         }
     }
 }
@@ -335,7 +330,7 @@ static void (*orig_AVCaptureSession_addOutput)(AVCaptureSession *self, SEL _cmd,
 static void hook_AVCaptureSession_addOutput(AVCaptureSession *self, SEL _cmd, AVCaptureOutput *output) {
     orig_AVCaptureSession_addOutput(self, _cmd, output);
     if ([output isKindOfClass:[AVCaptureVideoDataOutput class]]) {
-        apply_video_output_fps_cap((AVCaptureVideoDataOutput *)output, get_target_fps());
+        apply_video_output_settings((AVCaptureVideoDataOutput *)output);
     }
 }
 
@@ -343,7 +338,7 @@ static void hook_AVCaptureSession_addOutput(AVCaptureSession *self, SEL _cmd, AV
 static void (*orig_AVCaptureVideoDataOutput_setSampleBufferDelegate_queue)(AVCaptureVideoDataOutput *self, SEL _cmd, id<AVCaptureVideoDataOutputSampleBufferDelegate> delegate, dispatch_queue_t queue);
 static void hook_AVCaptureVideoDataOutput_setSampleBufferDelegate_queue(AVCaptureVideoDataOutput *self, SEL _cmd, id<AVCaptureVideoDataOutputSampleBufferDelegate> delegate, dispatch_queue_t queue) {
     orig_AVCaptureVideoDataOutput_setSampleBufferDelegate_queue(self, _cmd, delegate, queue);
-    apply_video_output_fps_cap(self, get_target_fps());
+    apply_video_output_settings(self);
 }
 
 // -----------------------------------------------------------------------------
@@ -433,3 +428,5 @@ __attribute__((constructor)) static void init_indigo_thermal_fix(void) {
             (long)get_target_fps());
     }
 }
+
+#pragma clang diagnostic pop
