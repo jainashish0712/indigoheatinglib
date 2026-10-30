@@ -3,7 +3,7 @@
 Comprehensive Automated Test Suite for IndigoThermalFix.
 Performs deep static analysis, ARC bridging validation, clang compatibility checks,
 framework linkages, Swift metadata patching validation, deprecation checks,
-and Mach-O binary structural verification.
+CoreML hardware acceleration hooks, and Mach-O binary structural verification.
 """
 
 import os
@@ -90,6 +90,7 @@ class TestTweakARCAndClangCompatibility(unittest.TestCase):
             "<QuartzCore/QuartzCore.h>",
             "<AVFoundation/AVFoundation.h>",
             "<CoreMedia/CoreMedia.h>",
+            "<CoreML/CoreML.h>",
             "<objc/runtime.h>",
             "<objc/message.h>",
             "<os/log.h>",
@@ -121,6 +122,9 @@ class TestTweakARCAndClangCompatibility(unittest.TestCase):
             ("addInput:", "hook_AVCaptureSession_addInput", "orig_AVCaptureSession_addInput"),
             ("addOutput:", "hook_AVCaptureSession_addOutput", "orig_AVCaptureSession_addOutput"),
             ("setSampleBufferDelegate:queue:", "hook_AVCaptureVideoDataOutput_setSampleBufferDelegate_queue", "orig_AVCaptureVideoDataOutput_setSampleBufferDelegate_queue"),
+            ("setComputeUnits:", "hook_MLModelConfiguration_setComputeUnits", "orig_MLModelConfiguration_setComputeUnits"),
+            ("modelWithContentsOfURL:configuration:error:", "hook_MLModel_modelWithContentsOfURL_configuration_error", "orig_MLModel_modelWithContentsOfURL_configuration_error"),
+            ("initWithContentsOfURL:configuration:error:", "hook_MLModel_initWithContentsOfURL_configuration_error", "orig_MLModel_initWithContentsOfURL_configuration_error"),
         ]
 
         for selector, hook_func, orig_ptr in expected_hooks:
@@ -177,6 +181,13 @@ class TestTweakARCAndClangCompatibility(unittest.TestCase):
         self.assertIn("videoSupportedFrameRateRanges", self.clean_code, "Frame rate ranges must be validated")
         self.assertIn("alwaysDiscardsLateVideoFrames", self.clean_code, "alwaysDiscardsLateVideoFrames must be configured")
 
+    def test_coreml_acceleration_logic(self):
+        """Verify CoreML hardware acceleration and Apple Neural Engine enforcement."""
+        self.assertIn("MLComputeUnitsAll", self.clean_code, "Missing MLComputeUnitsAll")
+        self.assertIn("MLComputeUnitsCPUOnly", self.clean_code, "Missing check for MLComputeUnitsCPUOnly")
+        self.assertIn("MLModelConfiguration", self.clean_code, "MLModelConfiguration must be resolved and hooked")
+        self.assertIn("MLModel", self.clean_code, "MLModel must be resolved and hooked")
+
 
 class TestBuildConfiguration(unittest.TestCase):
     """Verify Makefile and GitHub Actions workflow configuration."""
@@ -193,6 +204,7 @@ class TestBuildConfiguration(unittest.TestCase):
         self.assertIn("-framework QuartzCore", wf_content)
         self.assertIn("-framework AVFoundation", wf_content)
         self.assertIn("-framework CoreMedia", wf_content)
+        self.assertIn("-framework CoreML", wf_content)
         self.assertIn("python3 test_tweak.py", wf_content)
         self.assertIn("refs/heads/dev", wf_content)
 
@@ -207,6 +219,7 @@ class TestBuildConfiguration(unittest.TestCase):
         self.assertIn("QuartzCore", make_content)
         self.assertIn("AVFoundation", make_content)
         self.assertIn("CoreMedia", make_content)
+        self.assertIn("CoreML", make_content)
         self.assertIn("Tweak.m", make_content)
 
 

@@ -4,6 +4,7 @@
 #import <QuartzCore/QuartzCore.h>
 #import <AVFoundation/AVFoundation.h>
 #import <CoreMedia/CoreMedia.h>
+#import <CoreML/CoreML.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
 #import <os/log.h>
@@ -69,7 +70,7 @@ static NSInteger get_target_fps(void) {
 }
 
 // -----------------------------------------------------------------------------
-// Approach 1: Viewfinder MTKView FPS Cap (Downstream Consumer)
+// Viewfinder MTKView FPS Cap (Downstream Consumer)
 // -----------------------------------------------------------------------------
 
 static void apply_viewfinder_fps_cap(MTKView *view) {
@@ -111,7 +112,7 @@ static void apply_viewfinder_fps_cap(MTKView *view) {
 }
 
 // -----------------------------------------------------------------------------
-// Approach 1: AVFoundation Camera Sensor & Preview Stream FPS Cap (Upstream Producer)
+// AVFoundation Camera Sensor & Preview Stream FPS Cap (Upstream Producer)
 // -----------------------------------------------------------------------------
 
 static void apply_device_fps_cap(AVCaptureDevice *device, NSInteger targetFPS) {
@@ -180,7 +181,41 @@ static void apply_session_fps_cap(AVCaptureSession *session) {
 }
 
 // -----------------------------------------------------------------------------
-// Approach 3 & 4: Swift ModelSpecificSettings VTable Patches (is17Series & Burst Pacing)
+// CoreML Hardware Acceleration (Enforce Apple Neural Engine)
+// -----------------------------------------------------------------------------
+
+// Hook -[MLModelConfiguration setComputeUnits:]
+static void (*orig_MLModelConfiguration_setComputeUnits)(MLModelConfiguration *self, SEL _cmd, MLComputeUnits units);
+static void hook_MLModelConfiguration_setComputeUnits(MLModelConfiguration *self, SEL _cmd, MLComputeUnits units) {
+    if (units == MLComputeUnitsCPUOnly) {
+        LOG("Intercepted MLModelConfiguration.setComputeUnits(CPUOnly) -> Overriding to MLComputeUnitsAll (Apple Neural Engine + GPU + CPU)");
+        units = MLComputeUnitsAll;
+    }
+    orig_MLModelConfiguration_setComputeUnits(self, _cmd, units);
+}
+
+// Hook +[MLModel modelWithContentsOfURL:configuration:error:]
+static MLModel *(*orig_MLModel_modelWithContentsOfURL_configuration_error)(Class self, SEL _cmd, NSURL *url, MLModelConfiguration *configuration, NSError * __autoreleasing *error);
+static MLModel *hook_MLModel_modelWithContentsOfURL_configuration_error(Class self, SEL _cmd, NSURL *url, MLModelConfiguration *configuration, NSError * __autoreleasing *error) {
+    if (configuration && configuration.computeUnits == MLComputeUnitsCPUOnly) {
+        LOG("MLModel loading from %@ with CPUOnly -> Overriding computeUnits to MLComputeUnitsAll (Apple Neural Engine)", url ? url.lastPathComponent : @"unknown");
+        configuration.computeUnits = MLComputeUnitsAll;
+    }
+    return orig_MLModel_modelWithContentsOfURL_configuration_error(self, _cmd, url, configuration, error);
+}
+
+// Hook -[MLModel initWithContentsOfURL:configuration:error:]
+static MLModel *(*orig_MLModel_initWithContentsOfURL_configuration_error)(MLModel *self, SEL _cmd, NSURL *url, MLModelConfiguration *configuration, NSError * __autoreleasing *error);
+static MLModel *hook_MLModel_initWithContentsOfURL_configuration_error(MLModel *self, SEL _cmd, NSURL *url, MLModelConfiguration *configuration, NSError * __autoreleasing *error) {
+    if (configuration && configuration.computeUnits == MLComputeUnitsCPUOnly) {
+        LOG("MLModel initializing from %@ with CPUOnly -> Overriding computeUnits to MLComputeUnitsAll (Apple Neural Engine)", url ? url.lastPathComponent : @"unknown");
+        configuration.computeUnits = MLComputeUnitsAll;
+    }
+    return orig_MLModel_initWithContentsOfURL_configuration_error(self, _cmd, url, configuration, error);
+}
+
+// -----------------------------------------------------------------------------
+// Swift ModelSpecificSettings VTable Patches (is17Series & Burst Pacing)
 // -----------------------------------------------------------------------------
 
 // Hook is17Series (Slot 26) -> Force false for iPhone 16 Pro to eliminate inverted bitmask
@@ -366,6 +401,15 @@ __attribute__((constructor)) static void init_indigo_thermal_fix(void) {
         }
         Class avVideoOutputClass = objc_getClass("AVCaptureVideoDataOutput");
 
+        // 3. Resolve & Hook CoreML classes
+        Class mlConfigClass = objc_getClass("MLModelConfiguration");
+        Class mlModelClass = objc_getClass("MLModel");
+        if (!mlConfigClass || !mlModelClass) {
+            [[NSBundle bundleWithPath:@"/System/Library/Frameworks/CoreML.framework"] load];
+            mlConfigClass = objc_getClass("MLModelConfiguration");
+            mlModelClass = objc_getClass("MLModel");
+        }
+
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wcast-function-type"
         if (mtkViewClass) {
@@ -419,12 +463,35 @@ __attribute__((constructor)) static void init_indigo_thermal_fix(void) {
         } else {
             LOG("WARNING: AVCaptureVideoDataOutput class could not be resolved.");
         }
+
+        // 4. Hook CoreML Model Loading & Configuration
+        if (mlConfigClass) {
+            safe_swizzle(mlConfigClass, @selector(setComputeUnits:),
+                         (IMP)hook_MLModelConfiguration_setComputeUnits,
+                         (IMP *)&orig_MLModelConfiguration_setComputeUnits);
+        } else {
+            LOG("WARNING: MLModelConfiguration class could not be resolved.");
+        }
+
+        if (mlModelClass) {
+            Class mlModelMetaClass = object_getClass((id)mlModelClass);
+            if (mlModelMetaClass) {
+                safe_swizzle(mlModelMetaClass, @selector(modelWithContentsOfURL:configuration:error:),
+                             (IMP)hook_MLModel_modelWithContentsOfURL_configuration_error,
+                             (IMP *)&orig_MLModel_modelWithContentsOfURL_configuration_error);
+            }
+            safe_swizzle(mlModelClass, @selector(initWithContentsOfURL:configuration:error:),
+                         (IMP)hook_MLModel_initWithContentsOfURL_configuration_error,
+                         (IMP *)&orig_MLModel_initWithContentsOfURL_configuration_error);
+        } else {
+            LOG("WARNING: MLModel class could not be resolved.");
+        }
 #pragma clang diagnostic pop
 
-        // 3. Patch Swift ModelSpecificSettings vtable (is17Series & Burst Pacing)
+        // 5. Patch Swift ModelSpecificSettings vtable (is17Series & Burst Pacing)
         patch_swift_model_settings();
 
-        LOG("Successfully hooked camera pipeline and viewfinder. Target frame rate capped at %ld FPS.",
+        LOG("Successfully hooked camera pipeline, CoreML ANE acceleration, and viewfinder. Target frame rate capped at %ld FPS.",
             (long)get_target_fps());
     }
 }

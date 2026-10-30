@@ -3,7 +3,7 @@ CC = xcrun -sdk iphoneos clang
 ARCHS = -arch arm64 -arch arm64e
 MIN_IOS = -miphoneos-version-min=15.0
 CFLAGS = -O3 -fobjc-arc -Wall -Wextra -Werror -Wno-error=deprecated-declarations $(MIN_IOS)
-FRAMEWORKS = -framework Foundation -framework UIKit -framework MetalKit -framework QuartzCore -framework AVFoundation -framework CoreMedia
+FRAMEWORKS = -framework Foundation -framework UIKit -framework MetalKit -framework QuartzCore -framework AVFoundation -framework CoreMedia -framework CoreML
 LDFLAGS = -dynamiclib -install_name @rpath/$(TARGET) $(FRAMEWORKS)
 
 all: $(TARGET) test
