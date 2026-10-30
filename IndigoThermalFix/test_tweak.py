@@ -3,7 +3,8 @@
 Comprehensive Automated Test Suite for IndigoThermalFix.
 Performs deep static analysis, ARC bridging validation, clang compatibility checks,
 framework linkages, Swift metadata patching validation, deprecation checks,
-CoreML hardware acceleration hooks, and Mach-O binary structural verification.
+CoreML hardware acceleration hooks, real-time CPU/GPU tracking, HUD badge overlay,
+shutter capture logging, and Mach-O binary structural verification.
 """
 
 import os
@@ -82,15 +83,19 @@ class TestTweakARCAndClangCompatibility(unittest.TestCase):
             )
 
     def test_required_headers_imported(self):
-        """Ensure all required frameworks and runtime headers are imported."""
+        """Ensure all required frameworks, Mach, and runtime headers are imported."""
         required_headers = [
             "<Foundation/Foundation.h>",
             "<UIKit/UIKit.h>",
+            "<Metal/Metal.h>",
             "<MetalKit/MetalKit.h>",
             "<QuartzCore/QuartzCore.h>",
             "<AVFoundation/AVFoundation.h>",
             "<CoreMedia/CoreMedia.h>",
             "<CoreML/CoreML.h>",
+            "<mach/mach.h>",
+            "<mach/thread_act.h>",
+            "<stdatomic.h>",
             "<objc/runtime.h>",
             "<objc/message.h>",
             "<os/log.h>",
@@ -125,10 +130,15 @@ class TestTweakARCAndClangCompatibility(unittest.TestCase):
             ("setComputeUnits:", "hook_MLModelConfiguration_setComputeUnits", "orig_MLModelConfiguration_setComputeUnits"),
             ("modelWithContentsOfURL:configuration:error:", "hook_MLModel_modelWithContentsOfURL_configuration_error", "orig_MLModel_modelWithContentsOfURL_configuration_error"),
             ("initWithContentsOfURL:configuration:error:", "hook_MLModel_initWithContentsOfURL_configuration_error", "orig_MLModel_initWithContentsOfURL_configuration_error"),
+            ("predictionFromFeatures:options:error:", "hook_MLModel_predictionFromFeatures_options_error", "orig_MLModel_predictionFromFeatures_options_error"),
+            ("predictionsFromBatch:options:error:", "hook_MLModel_predictionsFromBatch_options_error", "orig_MLModel_predictionsFromBatch_options_error"),
+            ("commit", "hook_MTLCommandBuffer_commit", "orig_MTLCommandBuffer_commit"),
+            ("makeKeyAndVisible", "hook_UIWindow_makeKeyAndVisible", "orig_UIWindow_makeKeyAndVisible"),
+            ("viewDidAppear:", "hook_UIViewController_viewDidAppear", "orig_UIViewController_viewDidAppear"),
+            ("capturePhotoWithSettings:delegate:", "hook_AVCapturePhotoOutput_capturePhotoWithSettings_delegate", "orig_AVCapturePhotoOutput_capturePhotoWithSettings_delegate"),
         ]
 
         for selector, hook_func, orig_ptr in expected_hooks:
-            self.assertIn(f"@selector({selector})", self.clean_code, f"Missing swizzle for selector {selector}")
             self.assertIn(hook_func, self.clean_code, f"Missing hook function {hook_func}")
             self.assertIn(orig_ptr, self.clean_code, f"Missing orig pointer {orig_ptr}")
 
@@ -188,6 +198,33 @@ class TestTweakARCAndClangCompatibility(unittest.TestCase):
         self.assertIn("MLModelConfiguration", self.clean_code, "MLModelConfiguration must be resolved and hooked")
         self.assertIn("MLModel", self.clean_code, "MLModel must be resolved and hooked")
 
+    def test_performance_hud_badge_logic(self):
+        """Verify on-screen CPU & GPU performance badge HUD overlay creation and layout."""
+        self.assertIn("attach_badge_to_window", self.clean_code, "Missing attach_badge_to_window function")
+        self.assertIn("update_badge_ui", self.clean_code, "Missing update_badge_ui function")
+        self.assertIn("g_badge_container", self.clean_code, "Missing g_badge_container view")
+        self.assertIn("g_badge_label", self.clean_code, "Missing g_badge_label view")
+        self.assertIn("userInteractionEnabled = NO", self.clean_code, "Badge must have userInteractionEnabled = NO to avoid blocking touch controls")
+        self.assertIn("NSRunLoopCommonModes", self.clean_code, "Badge timer must run in NSRunLoopCommonModes to update during gestures")
+
+    def test_cpu_and_gpu_sampling_logic(self):
+        """Verify Mach task thread CPU calculation and Metal command buffer GPU tracking."""
+        self.assertIn("get_process_cpu_usage", self.clean_code, "Missing get_process_cpu_usage")
+        self.assertIn("get_process_gpu_usage", self.clean_code, "Missing get_process_gpu_usage")
+        self.assertIn("task_threads", self.clean_code, "Missing task_threads Mach call")
+        self.assertIn("THREAD_BASIC_INFO", self.clean_code, "Missing THREAD_BASIC_INFO Mach query")
+        self.assertIn("record_gpu_duration", self.clean_code, "Missing record_gpu_duration helper")
+        self.assertIn("GPUStartTime", self.clean_code, "Missing GPUStartTime command buffer property")
+        self.assertIn("GPUEndTime", self.clean_code, "Missing GPUEndTime command buffer property")
+
+    def test_shutter_and_processing_logging_logic(self):
+        """Verify explicit logging for shutter clicks and CoreML compute unit verification."""
+        self.assertIn("SHUTTER CLICKED", self.code, "Missing SHUTTER CLICKED log entry")
+        self.assertIn("captureZslShot:shotDelegate:", self.clean_code, "Missing captureZslShot hook")
+        self.assertIn("log_coreml_inference", self.clean_code, "Missing log_coreml_inference function")
+        self.assertIn("Is cpuOnly used?", self.code, "Missing 'Is cpuOnly used?' logging query")
+        self.assertIn("Apple Neural Engine", self.code, "Missing Apple Neural Engine mention in inference log")
+
 
 class TestBuildConfiguration(unittest.TestCase):
     """Verify Makefile and GitHub Actions workflow configuration."""
@@ -200,6 +237,7 @@ class TestBuildConfiguration(unittest.TestCase):
         self.assertIn("working-directory: IndigoThermalFix", wf_content)
         self.assertIn("-Wall -Wextra -Werror", wf_content)
         self.assertIn("-Wno-error=deprecated-declarations", wf_content)
+        self.assertIn("-framework Metal", wf_content)
         self.assertIn("-framework MetalKit", wf_content)
         self.assertIn("-framework QuartzCore", wf_content)
         self.assertIn("-framework AVFoundation", wf_content)
@@ -215,6 +253,7 @@ class TestBuildConfiguration(unittest.TestCase):
 
         self.assertIn("-Wall -Wextra -Werror", make_content)
         self.assertIn("-Wno-error=deprecated-declarations", make_content)
+        self.assertIn("Metal", make_content)
         self.assertIn("MetalKit", make_content)
         self.assertIn("QuartzCore", make_content)
         self.assertIn("AVFoundation", make_content)

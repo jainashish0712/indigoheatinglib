@@ -54,6 +54,7 @@ jobs:
             -DDEFAULT_TARGET_FPS=$TARGET_FPS \
             -framework Foundation \
             -framework UIKit \
+            -framework Metal \
             -framework MetalKit \
             -framework QuartzCore \
             -framework AVFoundation \
@@ -76,6 +77,7 @@ jobs:
               -DDEFAULT_TARGET_FPS=$TARGET_FPS \
               -framework Foundation \
               -framework UIKit \
+              -framework Metal \
               -framework MetalKit \
               -framework QuartzCore \
               -framework AVFoundation \
