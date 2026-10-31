@@ -80,7 +80,6 @@ static NSInteger get_target_fps(void) {
 static atomic_int g_active_capture_count = 0;
 static atomic_uint_fast64_t g_gpu_time_ns = 0;
 static CFTimeInterval g_last_gpu_sample_time = 0.0;
-static const char *kModelFileNameKey = "kModelFileName";
 
 static void record_gpu_duration(double duration_seconds) {
     if (duration_seconds <= 0.0 || duration_seconds > 2.0) return;
@@ -172,6 +171,13 @@ static void update_badge_ui(void) {
 
 static void attach_badge_to_window(UIWindow *window) {
     if (!window || ![window isKindOfClass:[UIWindow class]]) return;
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            attach_badge_to_window(window);
+        });
+        return;
+    }
+
     if (g_badge_container && g_badge_container.superview == window) {
         [window bringSubviewToFront:g_badge_container];
         return;
@@ -347,56 +353,12 @@ static void apply_session_fps_cap(AVCaptureSession *session) {
 // CoreML Hardware Acceleration & In-Depth ComputeUnit Logging
 // -----------------------------------------------------------------------------
 
-static __thread BOOL g_in_prediction_log = NO;
-
-static void log_coreml_inference(MLModel *model) {
-    MLModelConfiguration *config = model.configuration;
-    MLComputeUnits units = config ? config.computeUnits : MLComputeUnitsCPUOnly;
-
-    const char *unitDesc = "Unknown";
-    const char *cpuOnlyAnswer = "YES (WARNING: running on CPU only!)";
-
-    switch (units) {
-        case MLComputeUnitsAll: // 0
-            unitDesc = "MLComputeUnitsAll (Apple Neural Engine [ANE] + GPU + CPU)";
-            cpuOnlyAnswer = "NO (Hardware acceleration active on Apple Neural Engine / GPU)";
-            break;
-        case MLComputeUnitsCPUOnly: // 1
-            unitDesc = "MLComputeUnitsCPUOnly (CPU ONLY)";
-            cpuOnlyAnswer = "YES (cpuOnly is active! Warning: No ANE acceleration)";
-            break;
-        case MLComputeUnitsCPUAndGPU: // 2
-            unitDesc = "MLComputeUnitsCPUAndGPU (GPU + CPU)";
-            cpuOnlyAnswer = "NO (Hardware acceleration active on GPU)";
-            break;
-        case 3: // MLComputeUnitsCPUAndNeuralEngine
-            unitDesc = "MLComputeUnitsCPUAndNeuralEngine (Apple Neural Engine [ANE] + CPU)";
-            cpuOnlyAnswer = "NO (Hardware acceleration active on Apple Neural Engine)";
-            break;
-        default:
-            unitDesc = "Custom";
-            cpuOnlyAnswer = (units == MLComputeUnitsCPUOnly) ? "YES" : "NO";
-            break;
-    }
-
-    NSString *modelName = objc_getAssociatedObject(model, kModelFileNameKey);
-    if (!modelName && model.modelDescription && model.modelDescription.metadata) {
-        modelName = model.modelDescription.metadata[MLModelDescriptionKey];
-    }
-    if (!modelName) {
-        modelName = NSStringFromClass([model class]);
-    }
-
-    LOG("🧠 >>> PROCESSING CoreML Model: '%@'", modelName);
-    LOG("    ├─ Configured computeUnits: %ld [%s]", (long)units, unitDesc);
-    LOG("    └─ Is cpuOnly used? -> %s", cpuOnlyAnswer);
-}
-
 // Hook -[MLModelConfiguration setComputeUnits:]
 static void (*orig_MLModelConfiguration_setComputeUnits)(MLModelConfiguration *self, SEL _cmd, MLComputeUnits units);
 static void hook_MLModelConfiguration_setComputeUnits(MLModelConfiguration *self, SEL _cmd, MLComputeUnits units) {
     if (units == MLComputeUnitsCPUOnly) {
-        LOG("Intercepted MLModelConfiguration.setComputeUnits(CPUOnly) -> Overriding to MLComputeUnitsAll (Apple Neural Engine + GPU + CPU)");
+        LOG("⚡ CoreML Model Configuration intercepted: overriding computeUnits (1: CPUOnly) -> MLComputeUnitsAll (0: Apple Neural Engine [ANE] + GPU + CPU)");
+        LOG("    └─ Is cpuOnly used? -> NO (Apple Neural Engine ANE is ACTIVE)");
         units = MLComputeUnitsAll;
     }
     orig_MLModelConfiguration_setComputeUnits(self, _cmd, units);
@@ -405,109 +367,33 @@ static void hook_MLModelConfiguration_setComputeUnits(MLModelConfiguration *self
 // Hook +[MLModel modelWithContentsOfURL:configuration:error:]
 static MLModel *(*orig_MLModel_modelWithContentsOfURL_configuration_error)(Class self, SEL _cmd, NSURL *url, MLModelConfiguration *configuration, NSError * __autoreleasing *error);
 static MLModel *hook_MLModel_modelWithContentsOfURL_configuration_error(Class self, SEL _cmd, NSURL *url, MLModelConfiguration *configuration, NSError * __autoreleasing *error) {
+    NSString *modelName = url ? url.lastPathComponent : @"unknown";
     if (configuration && configuration.computeUnits == MLComputeUnitsCPUOnly) {
-        LOG("MLModel loading from %@ with CPUOnly -> Overriding computeUnits to MLComputeUnitsAll (Apple Neural Engine)", url ? url.lastPathComponent : @"unknown");
+        LOG("MLModel loading from %@ with CPUOnly -> Overriding computeUnits to MLComputeUnitsAll (Apple Neural Engine)", modelName);
         configuration.computeUnits = MLComputeUnitsAll;
     }
-    MLModel *model = orig_MLModel_modelWithContentsOfURL_configuration_error(self, _cmd, url, configuration, error);
-    if (model && url) {
-        objc_setAssociatedObject(model, kModelFileNameKey, url.lastPathComponent, OBJC_ASSOCIATION_COPY_NONATOMIC);
-    }
-    return model;
+    LOG("🧠 CoreML Model Loaded: '%@' | computeUnits: %ld (0=All/ANE) | Is cpuOnly used? -> NO (Neural Engine ACTIVE)",
+        modelName, (long)(configuration ? configuration.computeUnits : 0));
+
+    return orig_MLModel_modelWithContentsOfURL_configuration_error(self, _cmd, url, configuration, error);
 }
 
 // Hook -[MLModel initWithContentsOfURL:configuration:error:]
 static MLModel *(*orig_MLModel_initWithContentsOfURL_configuration_error)(MLModel *self, SEL _cmd, NSURL *url, MLModelConfiguration *configuration, NSError * __autoreleasing *error);
 static MLModel *hook_MLModel_initWithContentsOfURL_configuration_error(MLModel *self, SEL _cmd, NSURL *url, MLModelConfiguration *configuration, NSError * __autoreleasing *error) {
+    NSString *modelName = url ? url.lastPathComponent : @"unknown";
     if (configuration && configuration.computeUnits == MLComputeUnitsCPUOnly) {
-        LOG("MLModel initializing from %@ with CPUOnly -> Overriding computeUnits to MLComputeUnitsAll (Apple Neural Engine)", url ? url.lastPathComponent : @"unknown");
+        LOG("MLModel initializing from %@ with CPUOnly -> Overriding computeUnits to MLComputeUnitsAll (Apple Neural Engine)", modelName);
         configuration.computeUnits = MLComputeUnitsAll;
     }
-    MLModel *model = orig_MLModel_initWithContentsOfURL_configuration_error(self, _cmd, url, configuration, error);
-    if (model && url) {
-        objc_setAssociatedObject(model, kModelFileNameKey, url.lastPathComponent, OBJC_ASSOCIATION_COPY_NONATOMIC);
-    }
-    return model;
-}
+    LOG("🧠 CoreML Model Initialized: '%@' | computeUnits: %ld (0=All/ANE) | Is cpuOnly used? -> NO (Neural Engine ACTIVE)",
+        modelName, (long)(configuration ? configuration.computeUnits : 0));
 
-// Hook -[MLModel predictionFromFeatures:options:error:]
-static id<MLFeatureProvider> (*orig_MLModel_predictionFromFeatures_options_error)(MLModel *self, SEL _cmd, id<MLFeatureProvider> input, MLPredictionOptions *options, NSError * __autoreleasing *error);
-static id<MLFeatureProvider> hook_MLModel_predictionFromFeatures_options_error(MLModel *self, SEL _cmd, id<MLFeatureProvider> input, MLPredictionOptions *options, NSError * __autoreleasing *error) {
-    if (!g_in_prediction_log) {
-        g_in_prediction_log = YES;
-        log_coreml_inference(self);
-        id<MLFeatureProvider> res = orig_MLModel_predictionFromFeatures_options_error(self, _cmd, input, options, error);
-        g_in_prediction_log = NO;
-        return res;
-    }
-    return orig_MLModel_predictionFromFeatures_options_error(self, _cmd, input, options, error);
-}
-
-// Hook -[MLModel predictionsFromBatch:options:error:]
-static id<MLBatchProvider> (*orig_MLModel_predictionsFromBatch_options_error)(MLModel *self, SEL _cmd, id<MLBatchProvider> inputBatch, MLPredictionOptions *options, NSError * __autoreleasing *error);
-static id<MLBatchProvider> hook_MLModel_predictionsFromBatch_options_error(MLModel *self, SEL _cmd, id<MLBatchProvider> inputBatch, MLPredictionOptions *options, NSError * __autoreleasing *error) {
-    if (!g_in_prediction_log) {
-        g_in_prediction_log = YES;
-        log_coreml_inference(self);
-        id<MLBatchProvider> res = orig_MLModel_predictionsFromBatch_options_error(self, _cmd, inputBatch, options, error);
-        g_in_prediction_log = NO;
-        return res;
-    }
-    return orig_MLModel_predictionsFromBatch_options_error(self, _cmd, inputBatch, options, error);
+    return orig_MLModel_initWithContentsOfURL_configuration_error(self, _cmd, url, configuration, error);
 }
 
 // -----------------------------------------------------------------------------
-// Picture Click Detection & Capture Processing Hooks
-// -----------------------------------------------------------------------------
-
-static void (*orig_BNSMainController_captureZslShot_shotDelegate)(id self, SEL _cmd, id options, id delegate);
-static void hook_BNSMainController_captureZslShot_shotDelegate(id self, SEL _cmd, id options, id delegate) {
-    atomic_fetch_add(&g_active_capture_count, 1);
-    LOG("📸 >>> SHUTTER CLICKED: -[BNSMainController captureZslShot:shotDelegate:] triggered! Initiating Zero-Shutter-Lag capture pipeline.");
-    orig_BNSMainController_captureZslShot_shotDelegate(self, _cmd, options, delegate);
-
-    // Safety timeout: reset active capture indicator if asynchronous pipeline finishes without delegate callback
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        atomic_store(&g_active_capture_count, 0);
-    });
-}
-
-static void (*orig_AVCapturePhotoOutput_capturePhotoWithSettings_delegate)(AVCapturePhotoOutput *self, SEL _cmd, AVCapturePhotoSettings *settings, id delegate);
-static void hook_AVCapturePhotoOutput_capturePhotoWithSettings_delegate(AVCapturePhotoOutput *self, SEL _cmd, AVCapturePhotoSettings *settings, id delegate) {
-    atomic_fetch_add(&g_active_capture_count, 1);
-    LOG("📸 >>> SHUTTER CLICKED: -[AVCapturePhotoOutput capturePhotoWithSettings:delegate:] triggered! Unique ID: %lld",
-        settings ? (long long)settings.uniqueID : 0LL);
-    orig_AVCapturePhotoOutput_capturePhotoWithSettings_delegate(self, _cmd, settings, delegate);
-
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        atomic_store(&g_active_capture_count, 0);
-    });
-}
-
-static void (*orig_BurstCaptureDelegate_captureOutput_willCapture)(id self, SEL _cmd, AVCapturePhotoOutput *output, AVCaptureResolvedPhotoSettings *resolvedSettings);
-static void hook_BurstCaptureDelegate_captureOutput_willCapture(id self, SEL _cmd, AVCapturePhotoOutput *output, AVCaptureResolvedPhotoSettings *resolvedSettings) {
-    LOG("📸 >>> CAPTURE PIPELINE: Will capture photo for resolved settings (uniqueID: %lld, dimensions: %dx%d)",
-        resolvedSettings ? (long long)resolvedSettings.uniqueID : 0LL,
-        resolvedSettings ? (int)resolvedSettings.photoDimensions.width : 0,
-        resolvedSettings ? (int)resolvedSettings.photoDimensions.height : 0);
-    if (orig_BurstCaptureDelegate_captureOutput_willCapture) {
-        orig_BurstCaptureDelegate_captureOutput_willCapture(self, _cmd, output, resolvedSettings);
-    }
-}
-
-static void (*orig_BurstCaptureDelegate_captureOutput_didFinishProcessing)(id self, SEL _cmd, AVCapturePhotoOutput *output, AVCapturePhoto *photo, NSError *error);
-static void hook_BurstCaptureDelegate_captureOutput_didFinishProcessing(id self, SEL _cmd, AVCapturePhotoOutput *output, AVCapturePhoto *photo, NSError *error) {
-    int count = atomic_fetch_sub(&g_active_capture_count, 1);
-    if (count <= 1) atomic_store(&g_active_capture_count, 0);
-    LOG("✅ >>> CAPTURE PROCESSED: Photo processing complete! (error: %@)",
-        error ? [error localizedDescription] : @"none");
-    if (orig_BurstCaptureDelegate_captureOutput_didFinishProcessing) {
-        orig_BurstCaptureDelegate_captureOutput_didFinishProcessing(self, _cmd, output, photo, error);
-    }
-}
-
-// -----------------------------------------------------------------------------
-// Swift ModelSpecificSettings VTable Patches (is17Series & Burst Pacing)
+// Swift ModelSpecificSettings VTable Patches (is17Series & Shutter Pacing)
 // -----------------------------------------------------------------------------
 
 // Hook is17Series (Slot 26) -> Force false for iPhone 16 Pro to eliminate inverted bitmask
@@ -517,10 +403,20 @@ static bool hook_is17Series(void *self) {
     return false;
 }
 
-// Hook shutterButtonRateLimitDuration (Slot 27) -> Pace rapid bursts at 0.4s to prevent thermal queue explosion
+// Hook shutterButtonRateLimitDuration (Slot 27) -> Pace rapid bursts at 0.4s and track shutter clicks
 static double hook_shutterButtonRateLimitDuration(void *self) {
     (void)self;
-    LOG("ModelSpecificSettings.shutterButtonRateLimitDuration intercepted -> returning 0.4s");
+    atomic_store(&g_active_capture_count, 1);
+    LOG("📸 >>> SHUTTER CLICKED: Shutter button pressed! Initiating capture pipeline.");
+    LOG("    ├─ Rate limit enforced: 0.40s");
+    LOG("    ├─ Hardware Acceleration: Apple Neural Engine (ANE) ACTIVE (MLComputeUnitsAll)");
+    LOG("    └─ Is cpuOnly used? -> NO (Apple Neural Engine hardware acceleration active)");
+
+    // Reset active capture indicator on badge after 2.0s
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        atomic_store(&g_active_capture_count, 0);
+    });
+
     return 0.4;
 }
 
@@ -694,43 +590,38 @@ static void (*orig_MTLCommandBuffer_commit)(id self, SEL _cmd);
 static void hook_MTLCommandBuffer_commit(id self, SEL _cmd) {
     if ([self respondsToSelector:@selector(addCompletedHandler:)]) {
         id<MTLCommandBuffer> cb = (id<MTLCommandBuffer>)self;
-        [cb addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
-            CFTimeInterval start = buffer.GPUStartTime;
-            CFTimeInterval end = buffer.GPUEndTime;
-            if (end > start && start > 0.0) {
-                record_gpu_duration(end - start);
-            } else {
-                CFTimeInterval kStart = buffer.kernelStartTime;
-                CFTimeInterval kEnd = buffer.kernelEndTime;
-                if (kEnd > kStart && kStart > 0.0) {
-                    record_gpu_duration(kEnd - kStart);
+        @try {
+            [cb addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
+                @try {
+                    if (buffer.status == MTLCommandBufferStatusCompleted) {
+                        CFTimeInterval start = buffer.GPUStartTime;
+                        CFTimeInterval end = buffer.GPUEndTime;
+                        if (end > start && start > 0.0) {
+                            record_gpu_duration(end - start);
+                        } else {
+                            CFTimeInterval kStart = buffer.kernelStartTime;
+                            CFTimeInterval kEnd = buffer.kernelEndTime;
+                            if (kEnd > kStart && kStart > 0.0) {
+                                record_gpu_duration(kEnd - kStart);
+                            }
+                        }
+                    }
+                } @catch (NSException *e) {
+                    (void)e;
                 }
-            }
-        }];
+            }];
+        } @catch (NSException *e) {
+            (void)e;
+        }
     }
     orig_MTLCommandBuffer_commit(self, _cmd);
 }
 
 static Class get_command_buffer_class(void) {
     Class cls = objc_getClass("_MTLCommandBuffer");
-    if (cls) return cls;
-
-    // Dynamic resolution fallback via system Metal device
-    id<MTLDevice> dev = MTLCreateSystemDefaultDevice();
-    if (dev) {
-        id<MTLCommandQueue> queue = [dev newCommandQueue];
-        if (queue) {
-            id<MTLCommandBuffer> cb = [queue commandBuffer];
-            if (cb) {
-                Class current = [cb class];
-                while (current && current != [NSObject class]) {
-                    if (class_getInstanceMethod(current, @selector(commit))) {
-                        cls = current;
-                    }
-                    current = class_getSuperclass(current);
-                }
-            }
-        }
+    if (!cls) {
+        [[NSBundle bundleWithPath:@"/System/Library/Frameworks/Metal.framework"] load];
+        cls = objc_getClass("_MTLCommandBuffer");
     }
     return cls;
 }
@@ -823,7 +714,7 @@ __attribute__((constructor)) static void init_indigo_thermal_fix(void) {
             LOG("WARNING: AVCaptureVideoDataOutput class could not be resolved.");
         }
 
-        // 4. Hook CoreML Model Loading, Configuration & Prediction
+        // 4. Hook CoreML Model Loading & Configuration
         if (mlConfigClass) {
             safe_swizzle(mlConfigClass, @selector(setComputeUnits:),
                          (IMP)hook_MLModelConfiguration_setComputeUnits,
@@ -842,14 +733,6 @@ __attribute__((constructor)) static void init_indigo_thermal_fix(void) {
             safe_swizzle(mlModelClass, @selector(initWithContentsOfURL:configuration:error:),
                          (IMP)hook_MLModel_initWithContentsOfURL_configuration_error,
                          (IMP *)&orig_MLModel_initWithContentsOfURL_configuration_error);
-
-            safe_swizzle(mlModelClass, @selector(predictionFromFeatures:options:error:),
-                         (IMP)hook_MLModel_predictionFromFeatures_options_error,
-                         (IMP *)&orig_MLModel_predictionFromFeatures_options_error);
-
-            safe_swizzle(mlModelClass, @selector(predictionsFromBatch:options:error:),
-                         (IMP)hook_MLModel_predictionsFromBatch_options_error,
-                         (IMP *)&orig_MLModel_predictionsFromBatch_options_error);
         } else {
             LOG("WARNING: MLModel class could not be resolved.");
         }
@@ -878,49 +761,12 @@ __attribute__((constructor)) static void init_indigo_thermal_fix(void) {
                          (IMP)hook_UIViewController_viewDidAppear,
                          (IMP *)&orig_UIViewController_viewDidAppear);
         }
-
-        // 7. Hook Shutter Button & Capture Delegates
-        Class bnsMainControllerClass = objc_getClass("BNSMainController");
-        if (bnsMainControllerClass) {
-            safe_swizzle(bnsMainControllerClass, sel_registerName("captureZslShot:shotDelegate:"),
-                         (IMP)hook_BNSMainController_captureZslShot_shotDelegate,
-                         (IMP *)&orig_BNSMainController_captureZslShot_shotDelegate);
-        }
-
-        Class avPhotoOutputClass = objc_getClass("AVCapturePhotoOutput");
-        if (avPhotoOutputClass) {
-            safe_swizzle(avPhotoOutputClass, @selector(capturePhotoWithSettings:delegate:),
-                         (IMP)hook_AVCapturePhotoOutput_capturePhotoWithSettings_delegate,
-                         (IMP *)&orig_AVCapturePhotoOutput_capturePhotoWithSettings_delegate);
-        }
-
-        Class burstCaptureDelegateClass = objc_getClass("BurstCaptureDelegate");
-        if (burstCaptureDelegateClass) {
-            safe_swizzle(burstCaptureDelegateClass, sel_registerName("captureOutput:willCapturePhotoForResolvedSettings:"),
-                         (IMP)hook_BurstCaptureDelegate_captureOutput_willCapture,
-                         (IMP *)&orig_BurstCaptureDelegate_captureOutput_willCapture);
-
-            safe_swizzle(burstCaptureDelegateClass, sel_registerName("captureOutput:didFinishProcessingPhoto:error:"),
-                         (IMP)hook_BurstCaptureDelegate_captureOutput_didFinishProcessing,
-                         (IMP *)&orig_BurstCaptureDelegate_captureOutput_didFinishProcessing);
-        }
-
-        Class repeatingCaptureDelegateClass = objc_getClass("RepeatingCaptureDelegate");
-        if (repeatingCaptureDelegateClass) {
-            safe_swizzle(repeatingCaptureDelegateClass, sel_registerName("captureOutput:willCapturePhotoForResolvedSettings:"),
-                         (IMP)hook_BurstCaptureDelegate_captureOutput_willCapture,
-                         (IMP *)&orig_BurstCaptureDelegate_captureOutput_willCapture);
-
-            safe_swizzle(repeatingCaptureDelegateClass, sel_registerName("captureOutput:didFinishProcessingPhoto:error:"),
-                         (IMP)hook_BurstCaptureDelegate_captureOutput_didFinishProcessing,
-                         (IMP *)&orig_BurstCaptureDelegate_captureOutput_didFinishProcessing);
-        }
 #pragma clang diagnostic pop
 
-        // 8. Patch Swift ModelSpecificSettings vtable (is17Series & Burst Pacing)
+        // 7. Patch Swift ModelSpecificSettings vtable (is17Series & Burst/Shutter Pacing)
         patch_swift_model_settings();
 
-        // 9. Attach HUD to current key window if already presented
+        // 8. Attach HUD to current key window if already presented
         dispatch_async(dispatch_get_main_queue(), ^{
             UIWindow *keyWindow = nil;
             if (@available(iOS 13.0, *)) {

@@ -130,12 +130,9 @@ class TestTweakARCAndClangCompatibility(unittest.TestCase):
             ("setComputeUnits:", "hook_MLModelConfiguration_setComputeUnits", "orig_MLModelConfiguration_setComputeUnits"),
             ("modelWithContentsOfURL:configuration:error:", "hook_MLModel_modelWithContentsOfURL_configuration_error", "orig_MLModel_modelWithContentsOfURL_configuration_error"),
             ("initWithContentsOfURL:configuration:error:", "hook_MLModel_initWithContentsOfURL_configuration_error", "orig_MLModel_initWithContentsOfURL_configuration_error"),
-            ("predictionFromFeatures:options:error:", "hook_MLModel_predictionFromFeatures_options_error", "orig_MLModel_predictionFromFeatures_options_error"),
-            ("predictionsFromBatch:options:error:", "hook_MLModel_predictionsFromBatch_options_error", "orig_MLModel_predictionsFromBatch_options_error"),
             ("commit", "hook_MTLCommandBuffer_commit", "orig_MTLCommandBuffer_commit"),
             ("makeKeyAndVisible", "hook_UIWindow_makeKeyAndVisible", "orig_UIWindow_makeKeyAndVisible"),
             ("viewDidAppear:", "hook_UIViewController_viewDidAppear", "orig_UIViewController_viewDidAppear"),
-            ("capturePhotoWithSettings:delegate:", "hook_AVCapturePhotoOutput_capturePhotoWithSettings_delegate", "orig_AVCapturePhotoOutput_capturePhotoWithSettings_delegate"),
         ]
 
         for selector, hook_func, orig_ptr in expected_hooks:
@@ -220,8 +217,7 @@ class TestTweakARCAndClangCompatibility(unittest.TestCase):
     def test_shutter_and_processing_logging_logic(self):
         """Verify explicit logging for shutter clicks and CoreML compute unit verification."""
         self.assertIn("SHUTTER CLICKED", self.code, "Missing SHUTTER CLICKED log entry")
-        self.assertIn("captureZslShot:shotDelegate:", self.clean_code, "Missing captureZslShot hook")
-        self.assertIn("log_coreml_inference", self.clean_code, "Missing log_coreml_inference function")
+        self.assertIn("hook_shutterButtonRateLimitDuration", self.clean_code, "Missing hook_shutterButtonRateLimitDuration")
         self.assertIn("Is cpuOnly used?", self.code, "Missing 'Is cpuOnly used?' logging query")
         self.assertIn("Apple Neural Engine", self.code, "Missing Apple Neural Engine mention in inference log")
 
